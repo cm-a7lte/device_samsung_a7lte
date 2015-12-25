@@ -500,6 +500,7 @@ int nfilter_init (void)
 #ifdef  _NF_CHECK_REGISTER_NULL
         if (nf_register_queue_handler_is_null())
         {
+            pr_info("%s:%s SEC_URL_FILTER : queue handler is null!\n", __FILE__, __func__);
 #endif
 #ifdef  _PF_DEFINED
             nf_register_queue_handler(PF_INET, &sec_url_queue_handler);

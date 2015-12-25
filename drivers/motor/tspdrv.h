@@ -99,6 +99,8 @@ int32_t g_nforce_32;
 #define MOTOR_STRENGTH			98	/*MOTOR_STRENGTH 98 %*/
 #elif defined(CONFIG_MACH_FORTUNA_TMO)
 #define MOTOR_STRENGTH			98	/*MOTOR_STRENGTH 98 %*/
+#elif defined(CONFIG_MACH_A8_CHN_OPEN)
+#define MOTOR_STRENGTH			86	/*MOTOR_STRENGTH 86 %*/
 #else
 #define MOTOR_STRENGTH			98	/*MOTOR_STRENGTH 98 %*/
 #endif
@@ -110,9 +112,14 @@ int32_t g_nforce_32;
 #define IMM_PWM_MULTIPLIER			140
 #elif defined(CONFIG_MACH_FORTUNA_TMO)
 #define GP_CLK_M_DEFAULT			3
-#define GP_CLK_N_DEFAULT                        137
-#define GP_CLK_D_DEFAULT			63  /* 50% duty cycle */
-#define IMM_PWM_MULTIPLIER			137
+#define GP_CLK_N_DEFAULT                        138
+#define GP_CLK_D_DEFAULT			69  /* 50% duty cycle */
+#define IMM_PWM_MULTIPLIER			138
+#elif defined(CONFIG_MACH_A8_CHN_OPEN)
+#define GP_CLK_M_DEFAULT			3
+#define GP_CLK_N_DEFAULT                        121
+#define GP_CLK_D_DEFAULT			61  /* 50% duty cycle */
+#define IMM_PWM_MULTIPLIER			121
 #else
 #define GP_CLK_M_DEFAULT			3
 #define GP_CLK_N_DEFAULT                        121

@@ -127,6 +127,15 @@
 #define CAMERA_EFFECT_EMBOSS		9
 #define CAMERA_EFFECT_SKETCH		10
 #define CAMERA_EFFECT_NEON			11
+#if defined(CONFIG_MACH_GT5NOTE10_KOR_OPEN)
+#define CAMERA_EFFECT_VINTAGE_WARM     12
+#define CAMERA_EFFECT_VINTAGE_COOL     13
+#define CAMERA_EFFECT_BLUE             14
+#define CAMERA_EFFECT_ORANGE           15
+#define CAMERA_EFFECT_GREEN            16
+#define CAMERA_EFFECT_BEAUTY           17
+#define CAMERA_EFFECT_MAX              18
+#else
 #define CAMERA_EFFECT_WASHED		12
 #define CAMERA_EFFECT_VINTAGE_WARM	13
 #define CAMERA_EFFECT_VINTAGE_COLD	14
@@ -136,6 +145,7 @@
 #define CAMERA_EFFECT_POINT_COLOR_4	18
 #define CAMERA_EFFECT_CARTOONIZE	19
 #define CAMERA_EFFECT_MAX			20
+#endif
 
 //scene mode
 #define CAMERA_SCENE_AUTO           0
@@ -205,6 +215,7 @@ enum msm_camera_i2c_reg_addr_type {
 enum msm_camera_i2c_data_type {
 	MSM_CAMERA_I2C_BYTE_DATA = 1,
 	MSM_CAMERA_I2C_WORD_DATA,
+	MSM_CAMERA_I2C_VARIABLE_LENGTH_DATA,
 	MSM_CAMERA_I2C_SET_BYTE_MASK,
 	MSM_CAMERA_I2C_UNSET_BYTE_MASK,
 	MSM_CAMERA_I2C_SET_WORD_MASK,
@@ -240,6 +251,8 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_FL_RESET,
 	SENSOR_GPIO_VT_RESET,
 	SENSOR_GPIO_VT_STANDBY,
+	SENSOR_GPIO_EXT_VANA_POWER,
+	SENSOR_GPIO_EXT_CAMIO_EN,
 	SENSOR_GPIO_MAX,
 };
 
@@ -250,6 +263,47 @@ enum msm_camera_vreg_name_t {
 	CAM_VAF,
 	CAM_VREG_MAX,
 };
+
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+enum msm_camera_cam_info_isp {
+	CAM_INFO_ISP_TYPE_INTERNAL = 0,
+	CAM_INFO_ISP_TYPE_EXTERNAL,
+	CAM_INFO_ISP_TYPE_SOC,
+};
+
+enum msm_camera_cam_info_cal_mem {
+	CAM_INFO_CAL_MEM_TYPE_NONE = 0,
+	CAM_INFO_CAL_MEM_TYPE_FROM,
+	CAM_INFO_CAL_MEM_TYPE_EEPROM,
+	CAM_INFO_CAL_MEM_TYPE_OTP,
+};
+
+enum msm_camera_cam_info_read_ver {
+	CAM_INFO_READ_VER_SYSFS = 0,
+	CAM_INFO_READ_VER_CAMON,
+};
+
+enum msm_camera_cam_info_core_voltage {
+	CAM_INFO_CORE_VOLT_NONE = 0,
+	CAM_INFO_CORE_VOLT_USE,
+};
+
+enum msm_camera_cam_info_upgrade {
+	CAM_INFO_FW_UPGRADE_NONE = 0,
+	CAM_INFO_FW_UPGRADE_SYSFS,
+	CAM_INFO_FW_UPGRADE_CAMON,
+};
+
+enum msm_camera_cam_info_companion {
+	CAM_INFO_COMPANION_NONE = 0,
+	CAM_INFO_COMPANION_USE,
+};
+
+enum msm_camera_cam_info_ois {
+	CAM_INFO_OIS_NONE = 0,
+	CAM_INFO_OIS_USE,
+};
+#endif
 
 enum msm_sensor_resolution_t {
 	MSM_SENSOR_RES_FULL,
@@ -442,12 +496,20 @@ enum i2c_freq_mode_t {
 struct msm_camera_i2c_reg_array {
 	uint16_t reg_addr;
 	uint16_t reg_data;
+	uint8_t  data_type;
+	uint32_t delay;
+};
+
+struct msm_camera_i2c_burst_reg_array {
+	uint16_t reg_addr;
 	uint8_t *reg_burst_data;
+	uint16_t reg_data_size;
 	uint32_t delay;
 };
 
 struct msm_camera_i2c_reg_setting {
-	struct msm_camera_i2c_reg_array *reg_setting;
+	void *reg_setting;
+	  // KK ML ONLY struct msm_camera_i2c_reg_array *reg_setting;
 	uint16_t size;
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	enum msm_camera_i2c_data_type data_type;
@@ -812,6 +874,7 @@ struct msm_actuator_set_position_t {
 
 struct msm_actuator_cfg_data {
 	int cfgtype;
+	int sw_landing_type;
 	uint8_t is_af_supported;
 	union {
 		struct msm_actuator_move_params_t move;
@@ -820,6 +883,11 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_set_position_t setpos;
 		enum af_camera_name cam_name;
 	} cfg;
+};
+
+enum msm_actuator_sw_landing_type {
+	MSM_ACTUATOR_DEFAULT_SW_LANDING,
+	MSM_ACTUATOR_MULTI_TASKING_SW_LANDING,
 };
 
 enum msm_actuator_write_type {

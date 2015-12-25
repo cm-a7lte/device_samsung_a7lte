@@ -17,8 +17,10 @@ obj-$(CONFIG_SENSORS_TCS3490)	    += tcs3490.o
 obj-$(CONFIG_SENSORS_CM3323)	    += cm3323.o
 obj-$(CONFIG_SENSORS_TMD3782S)	+= taos_tmd3782.o
 # grip_sensor
+obj-$(CONFIG_SENSORS_SX9310)        +=sx9310.o
 obj-$(CONFIG_SENSORS_SX9500)        +=sx9500.o
 obj-$(CONFIG_SENSORS_SX9500_WIFI)   +=sx9500_wifi.o
 # magnetic_sensor
 obj-$(CONFIG_SENSORS_BMA2X2)	+= bma2x2.o
 obj-$(CONFIG_SENSORS_BMM050)	+= bmm050_driver.o bmm050.o
+obj-$(CONFIG_SENSORS_AK09911C)	+= ak09911c.o

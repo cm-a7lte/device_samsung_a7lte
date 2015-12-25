@@ -28,6 +28,8 @@
 #include <linux/battery/fuelgauge/rt5033_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX77849)
 #include <linux/battery/fuelgauge/max77849_fuelgauge.h>
+#elif defined(CONFIG_FUELGAUGE_SM5703)
+#include <linux/battery/fuelgauge/sm5703_fuelgauge.h>
 #else
 #include <linux/battery/sec_fuelgauge.h>
 #endif
@@ -40,6 +42,9 @@
 #endif
 #if defined(CONFIG_SM5504_MUIC)
 #include <linux/i2c/sm5504.h>
+#endif
+#if defined(CONFIG_SM5703_MUIC)
+#include <linux/i2c/sm5703-muic.h>
 #endif
 #include <linux/gpio_event.h>
 
@@ -110,8 +115,11 @@ static int sec_bat_adc_ap_read(struct sec_battery_info *battery, int channel)
 		data = ((int)results.physical)/1000;
 		break;
 	case SEC_BAT_ADC_CHANNEL_DISCHARGING_CHECK:
-		/** Battery Thermister ADC is used for self_discharge IC ADC in GT5*/
+#if defined(CONFIG_MACH_A8_CHN_OPEN)||defined(CONFIG_MACH_GTEL_USA_VZW)
+                rc = qpnp_vadc_read(adc_client, LR_MUX2_BAT_ID, &results);
+#else
                 rc = qpnp_vadc_read(adc_client, LR_MUX1_BATT_THERM, &results);
+#endif
                 if (rc) {
                         pr_err("%s: Unable to read discharging_check ADC rc=%d\n",
                                         __func__, rc);
@@ -254,6 +262,8 @@ bool sec_bat_check_jig_status(void)
 	return check_sm5502_jig_state();
 #elif defined(CONFIG_SM5504_MUIC)
 	return check_sm5504_jig_state();
+#elif defined(CONFIG_SM5703_MUIC)
+	return check_sm5703_muic_jig_state();
 #elif defined(CONFIG_EXTCON_MAX77849)
 	return get_jig_state();
 #else
@@ -280,7 +290,7 @@ int sec_bat_check_cable_callback(struct sec_battery_info *battery)
 	int ta_nconnected = 0;
 	union power_supply_propval value;
 	struct power_supply *psy_charger =
-		power_supply_get_by_name("rt5033-charger");
+		power_supply_get_by_name(battery->pdata->charger_name);
 	int cable_type = POWER_SUPPLY_TYPE_BATTERY;
 
 	msleep(300);
@@ -315,15 +325,35 @@ void board_battery_init(struct platform_device *pdev, struct sec_battery_info *b
 	if ((!battery->pdata->temp_adc_table) &&
 			(battery->pdata->thermal_source == SEC_BATTERY_THERMAL_SOURCE_ADC)) {
 		pr_info("%s : assign temp adc table\n", __func__);
+#if defined(CONFIG_SEC_E5_PROJECT)
+		pr_info("%s : E5 project, system_rev = %d\n", __func__, system_rev);
+		if(system_rev > 0x8){
+				battery->pdata->temp_adc_table = temp_table_e5_r09;
+				battery->pdata->temp_amb_adc_table = temp_table_e5_r09;
+
+				battery->pdata->temp_adc_table_size =
+						sizeof(temp_table_e5_r09)/sizeof(sec_bat_adc_table_data_t);
+				battery->pdata->temp_amb_adc_table_size =
+						sizeof(temp_table_e5_r09)/sizeof(sec_bat_adc_table_data_t);
+		} else {
 
 		battery->pdata->temp_adc_table = temp_table;
 		battery->pdata->temp_amb_adc_table = temp_table;
 
 		battery->pdata->temp_adc_table_size = sizeof(temp_table)/sizeof(sec_bat_adc_table_data_t);
 		battery->pdata->temp_amb_adc_table_size = sizeof(temp_table)/sizeof(sec_bat_adc_table_data_t);
+
+		}
+#else
+		battery->pdata->temp_adc_table = temp_table;
+		battery->pdata->temp_amb_adc_table = temp_table;
+
+		battery->pdata->temp_adc_table_size = sizeof(temp_table)/sizeof(sec_bat_adc_table_data_t);
+		battery->pdata->temp_amb_adc_table_size = sizeof(temp_table)/sizeof(sec_bat_adc_table_data_t);
+#endif
 	}
 
-#if defined(CONFIG_SEC_A3_PROJECT) || defined(CONFIG_SEC_A5_PROJECT)
+#if defined(CONFIG_SEC_A3_PROJECT) || defined(CONFIG_SEC_A5_PROJECT) || defined(CONFIG_SEC_E5_PROJECT)
 	battery->pdata->temp_highlimit_threshold_event = TEMP_HIGHLIMIT_THRESHOLD_EVENT;
 	battery->pdata->temp_highlimit_recovery_event = TEMP_HIGHLIMIT_RECOVERY_EVENT;
 	battery->pdata->temp_highlimit_threshold_normal = TEMP_HIGHLIMIT_THRESHOLD_NORMAL;

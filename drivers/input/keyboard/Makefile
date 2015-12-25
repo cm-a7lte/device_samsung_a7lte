@@ -63,3 +63,5 @@ obj-$(CONFIG_KEYBOARD_ABOV_TOUCH)	+= abov_touchkey.o
 obj-$(CONFIG_KEYBOARD_ABOV_TOUCH_A7)	+= abov_touchkey_a7.o
 obj-$(CONFIG_KEYBOARD_ABOV_TOUCH_A3) 	+= abov_touchkey_a3.o
 obj-$(CONFIG_KEYBOARD_ABOV_TOUCH_A5)	+= abov_touchkey_a5.o
+obj-$(CONFIG_KEYBOARD_ABOV_TOUCH_A8)	+= abov_touchkey_a8.o
+

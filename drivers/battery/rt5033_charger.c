@@ -298,6 +298,9 @@ static int __r5033_current_limit_to_setting(int current_limit)
 	return -EINVAL;
 }
 
+#if defined(CONFIG_MACH_FORTUNA_SPR) || defined(CONFIG_MACH_FORTUNA_TMO) || defined(CONFIG_MACH_FORTUNA_ACG)
+extern int poweroff_charging;
+#endif
 
 static void rt5033_set_input_current_limit(struct rt5033_charger_data *charger,
 		int current_limit)
@@ -323,6 +326,15 @@ static void rt5033_set_input_current_limit(struct rt5033_charger_data *charger,
 		}
 	}
 	else{
+#if defined(CONFIG_MACH_FORTUNA_SPR) || defined(CONFIG_MACH_FORTUNA_TMO) || defined(CONFIG_MACH_FORTUNA_ACG)
+		/*Soft Start Charging*/
+		if((charger->cable_type != POWER_SUPPLY_TYPE_BATTERY) && !poweroff_charging){
+			rt5033_assign_bits(i2c, RT5033_CHG_CTRL1, RT5033_AICR_LIMIT_MASK,
+				(1) << RT5033_AICR_LIMIT_SHIFT);
+			pr_info("%s: Soft Start Charging\n", __func__);
+			msleep(100);
+		}
+#endif
 		rt5033_assign_bits(i2c, RT5033_CHG_CTRL1, RT5033_AICR_LIMIT_MASK,
 		(data) << RT5033_AICR_LIMIT_SHIFT);
 		pr_info("%s: AICR Enabled", __func__);
@@ -1105,7 +1117,6 @@ static irqreturn_t rt5033_chg_ieoc_irq_handler(int irq, void *data)
 	struct rt5033_charger_data *info = data;
 	struct i2c_client *iic = info->rt5033->i2c_client;
 	int eoc_reg;
-	union power_supply_propval value;
 	cancel_delayed_work(&info->eoc_timeout_work);
 	mutex_lock(&info->io_lock);
 #if defined(CONFIG_MACH_KOR_EARJACK_WR)
@@ -1129,9 +1140,6 @@ static irqreturn_t rt5033_chg_ieoc_irq_handler(int irq, void *data)
 		pr_info("%s : Full charged\n", __func__);
 		info->full_charged = true;
 		info->eoc_cnt = 0;
-		value.intval = POWER_SUPPLY_STATUS_FULL;
-		psy_do_property("battery", set,
-				POWER_SUPPLY_PROP_STATUS, value);
 	} else {
 		pr_info("%s : Reset EOC detection\n", __func__);
 		msleep(10);

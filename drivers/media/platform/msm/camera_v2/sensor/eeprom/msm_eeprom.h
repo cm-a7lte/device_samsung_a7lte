@@ -45,6 +45,7 @@ struct msm_eeprom_ctrl_t {
 	uint8_t is_supported;
 	struct msm_eeprom_board_info *eboard_info;
 	uint32_t subdev_id;
+	int pvdd_en;
 };
 
 #endif

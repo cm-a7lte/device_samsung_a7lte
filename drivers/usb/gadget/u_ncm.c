@@ -70,6 +70,7 @@ static void ncm_work(struct work_struct *data)
 	kobject_uevent_env(&mirrorlink_device.this_device->kobj, KOBJ_CHANGE, uevent_envp);
 }
 
+
 static int ncm_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
 {
@@ -94,6 +95,7 @@ static int ncm_function_init(struct android_usb_function *f,
 	ret = misc_register(&mirrorlink_device);
 	if (ret)
 		printk("usb: %s - usb_ncm misc driver fail \n",__func__);
+
 	return 0;
 }
 

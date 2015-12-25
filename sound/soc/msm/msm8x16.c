@@ -92,7 +92,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.detect_extn_cable = true,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
-	.hs_ext_micbias = false,
+	.hs_ext_micbias = true,
 };
 
 static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
@@ -284,10 +284,19 @@ static int Secondary_mic_bias(struct snd_soc_dapm_widget *w,
 #ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
 static int mic_enable = false;
 static int jack_connected = false;
+static int dynamic_micb_ctrl_voltage = 0;
 
 int is_mic_enable(void)
 {
 	return mic_enable;
+}
+
+int set_dynamic_micb_ctrl_voltage(int voltage)
+{
+	/* Convert voltage to reg value */
+	dynamic_micb_ctrl_voltage = (voltage - 160) * 2 / 10;
+
+	return dynamic_micb_ctrl_voltage;
 }
 #endif
 
@@ -927,7 +936,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 #ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE && jack_connected) {
 		mic_enable = false;
-		msm8x16_wcd_dynamic_control_micbias(MIC_BIAS_V2P20V);
+		msm8x16_wcd_dynamic_control_micbias(dynamic_micb_ctrl_voltage);
 	}
 #endif
 	if (!pdata->codec_type) {
@@ -1348,16 +1357,14 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 	 * all btn_low corresponds to threshold for current source
 	 * all bt_high corresponds to threshold for Micbias
 	 */
-	btn_low[0] = 25;
-	btn_high[0] = 25;
-	btn_low[1] = 50;
-	btn_high[1] = 50;
-	btn_low[2] = 75;
-	btn_high[2] = 75;
-	btn_low[3] = 112;
-	btn_high[3] = 112;
-	btn_low[4] = 137;
-	btn_high[4] = 137;
+	btn_low[0] = 13;
+	btn_high[0] = 169;
+	btn_low[1] = 21;
+	btn_high[1] = 263;
+	btn_low[2] = 46;
+	btn_high[2] = 563;
+	btn_low[3] = 97;
+	btn_high[3] = 1181;
 
 	return msm8x16_wcd_cal;
 }

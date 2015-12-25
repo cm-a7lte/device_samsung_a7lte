@@ -48,33 +48,6 @@
 
 			wlf,reset = <&msm_gpio 31 0>;
 			wlf,ldoena = <&msm_gpio 120 0>;
-			
-			wlf,init-mic-delay = <30>;
-			wlf,micd-detect-debounce = <300>;
-			wlf,micd-pol-gpio = <0>;
-			wlf,micd-bias-start-time = <0x1>;
-			wlf,micd-rate = <0x7>;
-			wlf,micd-dbtime = <0x1>;
-			wlf,micd-timeout = <1000>;
-			wlf,micd-force-micbias;
-			wlf,hpdet-moisture-imp = <2000>;
-			wlf,hpdet-channel = <1>;
-			wlf,hpdet-ext-res = <59>;
-			wlf,hpdet-short-circuit-imp = <3>;
-			wlf,micd-ranges = <
-				116 226
-				173 582
-				321 115
-				752 114
-				1257 217
-			>;
-
-			wlf,micd-configs = <
-				0x0 1 0
-			>;
-
-			wlf,micbias1 = <2800 0 1 0 0>;
-			wlf,micbias2 = <2800 0 1 0 0>;			
 
 			wlf,gpio-defaults = <
 				0xA101
@@ -83,13 +56,6 @@
 				0xA101
 				0x8101
 			>;
-			
-			wlf,gpsw = <0x3>;
-			wlf,use-jd-gpio;
-			wlf,jd-gpio-nopull;
-			wlf,micd-software-compare;
-			wlf,micd-open-circuit-declare = <1>;
-			wlf,jd-wake-time = <5000>;			
 
 			wlf,max-channels-clocked = <2 0 0>;
 			/* 0:MICVDD 1:MICBIAS1 2:MICBIAS2 3:MICBIAS3 */
@@ -465,38 +431,29 @@
 };
 
 &pmx_mdss {
-	qcom,num-grp-pins = <8>;
- 	qcom,pins = <&gp 19>, <&gp 25>, <&gp 51>,<&gp 115>, <&gp 28>, <&gp 34>, <&gp 12>,<&gp 33>;
+	qcom,num-grp-pins = <6>;
+	qcom,pins = <&gp 19>, <&gp 25>, <&gp 51>,<&gp 115>, <&gp 28>, <&gp 12>;
  };
 
 &dsi_vx5b3d_video_fhd{
 	samsung,panel-extra-power-gpio1 = <&msm_gpio 51 0>;/*lvds on 3.3V*/
 	samsung,panel-extra-power-gpio2 = <&msm_gpio 115 0>;/*lvds clk*/
 	samsung,panel-extra-power-gpio3 = <&msm_gpio 28 0>;/*smp power*/
-	samsung,panel-extra-power-gpio4 = <&msm_gpio 34 0>;/*lcd_5V_en*/
-
 	samsung,panel-backlight-tft-gpio1 = <&msm_gpio 12 0>;/*for lvds sel: normal standard*/
-	samsung,panel-backlight-tft-gpio2 = <&msm_gpio 33 0>;/*lcd_Vout_en*/
 };
 
 &dsi_vx5b3d_video_fhd_20{
 	samsung,panel-extra-power-gpio1 = <&msm_gpio 51 0>;/*lvds on 3.3V*/
 	samsung,panel-extra-power-gpio2 = <&msm_gpio 115 0>;/*lvds clk*/
 	samsung,panel-extra-power-gpio3 = <&msm_gpio 28 0>;/*smp power*/
-	samsung,panel-extra-power-gpio4 = <&msm_gpio 34 0>;/*lcd_5V_en*/
-
 	samsung,panel-backlight-tft-gpio1 = <&msm_gpio 12 0>;/*for lvds sel: normal standard*/
-	samsung,panel-backlight-tft-gpio2 = <&msm_gpio 33 0>;/*lcd_Vout_en*/
 };
 
 &dsi_vx5b3d_video_fhd_18{
 	samsung,panel-extra-power-gpio1 = <&msm_gpio 51 0>;/*lvds on 3.3V*/
 	samsung,panel-extra-power-gpio2 = <&msm_gpio 115 0>;/*lvds clk*/
 	samsung,panel-extra-power-gpio3 = <&msm_gpio 28 0>;/*smp power*/
-	samsung,panel-extra-power-gpio4 = <&msm_gpio 34 0>;/*lcd_5V_en*/
-
 	samsung,panel-backlight-tft-gpio1 = <&msm_gpio 12 0>;/*for lvds sel: normal standard*/
-	samsung,panel-backlight-tft-gpio2 = <&msm_gpio 33 0>;/*lcd_Vout_en*/
 };
 
 &mdss_dsi0 {

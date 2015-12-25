@@ -77,9 +77,9 @@ void mms_clear_input(struct mms_ts_info *info)
 
 	input_sync(info->input_dev);
 
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	if (info->booster && info->booster->dvfs_set)
-		info->booster->dvfs_off(info->booster);
+		info->booster->dvfs_set(info->booster, -1);
 #endif
 }
 
@@ -100,8 +100,25 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 		int id = (tmp[0] & MIP_EVENT_INPUT_ID) - 1;
 		int x = tmp[2] | ((tmp[1] & 0xf) << 8);
 		int y = tmp[3] | (((tmp[1] >> 4) & 0xf) << 8);
-		int touch_major = tmp[4];
-		int pressure = tmp[5];
+
+		/* old protocal   	int touch_major = tmp[4];
+		int pressure = tmp[5];  */
+
+		int pressure = tmp[4];
+		//int size = tmp[5];		// sumsize
+		int touch_major = tmp[6];
+		int touch_minor = tmp[7];
+
+		int palm = (tmp[0] & MIP_EVENT_INPUT_PALM) >> 4;
+
+#ifdef CONFIG_SEC_FACTORY
+#ifdef APPLY_RESOLUTION
+		if(info->config_ver_ic <= 0x10){
+			x *= 2;
+			y *= 2;
+		}
+#endif
+#endif
 
 		// Report input data
 #if MMS_USE_TOUCHKEY
@@ -158,6 +175,7 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 						id, info->boot_ver_ic, info->core_ver_ic,
 						info->config_ver_ic, info->touch_count);
 				}
+				//input_sync(info->input_dev);
 
 				continue;
 			}
@@ -176,26 +194,28 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 				input_report_abs(info->input_dev, ABS_MT_PRESSURE, 1);
 #endif
 			input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, touch_major);
+			input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, touch_minor);
+			input_report_abs(info->input_dev, ABS_MT_PALM, palm);
 
 			if (info->finger_state[id] == 0){
 				info->finger_state[id] = 1;
 				info->touch_count++;
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 				dev_info(&client->dev,
-					"P[%d] p:%d m:%d tc:%d\n",
-					id, pressure, touch_major, info->touch_count);
+					"P[%d] z:%d p:%d m:%d,%d tc:%d\n",
+					id, pressure, palm, touch_major, touch_minor, info->touch_count);
 #else
 				dev_err(&client->dev,
-					"P[%d] (%d, %d) p:%d m:%d tc:%d\n",
-					id, x, y, pressure, touch_major, info->touch_count);
+					"P[%d] (%d, %d) z:%d p:%d m:%d,%d tc:%d\n",
+					id, x, y, pressure, palm, touch_major, touch_minor, info->touch_count);
 #endif
 			}
 		}
+		//input_sync(info->input_dev);
 	}
-
 	input_sync(info->input_dev);
 
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	if (info->booster && info->booster->dvfs_set)
 		info->booster->dvfs_set(info->booster, info->touch_count);
 #endif
@@ -252,13 +272,13 @@ int mms_parse_devicetree(struct device *dev, struct mms_ts_info *info)
 	ret = of_property_read_u32(np, "melfas,max_x", &info->dtdata->max_x);
 	if (ret) {
 		dev_err(dev, "%s [ERROR] max_x\n", __func__);
-		info->dtdata->max_x = 1080;
+		info->dtdata->max_x = 1080 * 2;
 	}
 
 	ret = of_property_read_u32(np, "melfas,max_y", &info->dtdata->max_y);
 	if (ret) {
 		dev_err(dev, "%s [ERROR] max_y\n", __func__);
-		info->dtdata->max_y = 1920;
+		info->dtdata->max_y = 1920 * 2;
 	}
 
 	info->dtdata->gpio_intr = of_get_named_gpio(np, "melfas,irq-gpio", 0);
@@ -311,12 +331,14 @@ void mms_config_input(struct mms_ts_info *info)
 
 	input_mt_init_slots(input_dev, MAX_FINGER_NUM, INPUT_MT_DIRECT);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, info->max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, info->max_y, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, info->max_x -1, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, info->max_y -1, 0, 0);
 #ifdef CONFIG_SEC_FACTORY
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, INPUT_PRESSURE_MAX, 0, 0);
 #endif
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, INPUT_TOUCH_MAJOR_MAX, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_TOUCH_MINOR, 0, INPUT_TOUCH_MINOR_MAX, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_PALM, 0, 1, 0, 0);
 
 	//Key
 	set_bit(EV_KEY, input_dev->evbit);

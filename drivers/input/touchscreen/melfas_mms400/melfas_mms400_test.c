@@ -260,62 +260,74 @@ static int mms_proc_table_data(struct mms_ts_info *info, u8 size,
 		}
 	}
 
-	//print table header
-	printk("    ");
-	sprintf(data, "    ");
-	strcat(info->print_buf, data);
-	memset(data, 0, 10);
+	if (!info->read_all_data) {
+		//print table header
+		#if defined(CONFIG_TOUCHSCREEN_DUMP_MODE)
+		if(info->add_log_header == 1)
+			printk("mms_tsp");
+		#endif
+		printk("    ");
+		sprintf(data, "    ");
+		strcat(info->print_buf, data);
+		memset(data, 0, 10);
 
-	switch (data_size) {
-	case 1:
-		for (i_x = 0; i_x < max_x; i_x++) {
-			printk("[%1d]", i_x);
-			sprintf(data, "[%1d]", i_x);
-			strcat(info->print_buf, data);
-			memset(data, 0, 10);
+		switch (data_size) {
+		case 1:
+			for (i_x = 0; i_x < max_x; i_x++) {
+				printk("[%1d]", i_x);
+				sprintf(data, "[%1d]", i_x);
+				strcat(info->print_buf, data);
+				memset(data, 0, 10);
+			}
+			break;
+		case 2:
+			for (i_x = 0; i_x < max_x; i_x++) {
+				printk("[%3d]", i_x);
+				sprintf(data, "[%3d]", i_x);
+				strcat(info->print_buf, data);
+				memset(data, 0, 10);
+			}
+			break;
+		case 4:
+			for (i_x = 0; i_x < max_x; i_x++) {
+				printk("[%4d]", i_x);
+				sprintf(data, "[%4d]", i_x);
+				strcat(info->print_buf, data);
+				memset(data, 0, 10);
+			}
+			break;
+		default:
+			dev_err(&info->client->dev,"%s [ERROR] data_size [%d]\n",
+				__func__, data_size);
+			goto ERROR;
+			break;
 		}
-		break;
-	case 2:
-		for (i_x = 0; i_x < max_x; i_x++) {
-			printk("[%3d]", i_x);
-			sprintf(data, "[%3d]", i_x);
-			strcat(info->print_buf, data);
-			memset(data, 0, 10);
-		}
-		break;
-	case 4:
-		for (i_x = 0; i_x < max_x; i_x++) {
-			printk("[%4d]", i_x);
-			sprintf(data, "[%4d]", i_x);
-			strcat(info->print_buf, data);
-			memset(data, 0, 10);
-		}
-		break;
-	default:
-		dev_err(&info->client->dev,"%s [ERROR] data_size [%d]\n",
-			__func__, data_size);
-		goto ERROR;
-		break;
+
+		printk("\n");
+		sprintf(data, "\n");
+		strcat(info->print_buf, data);
+		memset(data, 0, 10);
 	}
-
-	printk("\n");
-	sprintf(data, "\n");
-	strcat(info->print_buf, data);
-	memset(data, 0, 10);
-
 	//print table
+
 	lim_y = max_y;
 	for (i_y = 0; i_y < lim_y; i_y++) {
 		//print line header
-		if ((key_num > 0) && (i_y == (lim_y -1))) {
-			printk("[TK]");
-			sprintf(data, "[TK]");
-		} else {
-			printk("[%2d]", i_y);
-			sprintf(data, "[%2d]", i_y);
+		if (!info->read_all_data) {
+			#if defined(CONFIG_TOUCHSCREEN_DUMP_MODE)
+			if(info->add_log_header == 1)
+				printk("mms_tsp");
+			#endif
+			if ((key_num > 0) && (i_y == (lim_y -1))) {
+				printk("[TK]");
+				sprintf(data, "[TK]");
+			} else {
+				printk("[%2d]", i_y);
+				sprintf(data, "[%2d]", i_y);
+			}
+			strcat(info->print_buf, data);
+			memset(data, 0, 10);
 		}
-		strcat(info->print_buf, data);
-		memset(data, 0, 10);
 
 		//print line
 		if ((key_num > 0) && (i_y == (lim_y - 1)))
@@ -324,34 +336,40 @@ static int mms_proc_table_data(struct mms_ts_info *info, u8 size,
 			lim_x = max_x;
 
 		for (i_x = 0; i_x < lim_x; i_x++) {
-			switch (data_size) {
-			case 1:
-				printk(" %2d", info->image_buf[i_y * max_x + i_x]);
-				sprintf(data, " %2d", info->image_buf[i_y * max_x + i_x]);
-				break;
-			case 2:
-				printk(" %4d", info->image_buf[i_y * max_x + i_x]);
-				sprintf(data, " %4d", info->image_buf[i_y * max_x + i_x]);
-				break;
-			case 4:
-				printk(" %5d", info->image_buf[i_y * max_x + i_x]);
-				sprintf(data, " %5u", info->image_buf[i_y * max_x + i_x]);
-				break;
-			default:
-				dev_err(&info->client->dev, "%s [ERROR] data_size [%d]\n",
-					__func__, data_size);
-				goto ERROR;
-				break;
-			}
+			if (info->read_all_data) {
+				sprintf(data, "%d,", info->image_buf[i_y * max_x + i_x]);
 
+			} else {
+				switch (data_size) {
+				case 1:
+					printk(" %2d", info->image_buf[i_y * max_x + i_x]);
+					sprintf(data, " %2d", info->image_buf[i_y * max_x + i_x]);
+					break;
+				case 2:
+					printk(" %4d", info->image_buf[i_y * max_x + i_x]);
+					sprintf(data, " %4d", info->image_buf[i_y * max_x + i_x]);
+					break;
+				case 4:
+					printk(" %5d", info->image_buf[i_y * max_x + i_x]);
+					sprintf(data, " %5u", info->image_buf[i_y * max_x + i_x]);
+					break;
+				default:
+					dev_err(&info->client->dev, "%s [ERROR] data_size [%d]\n",
+						__func__, data_size);
+					goto ERROR;
+					break;
+				}
+			}
 			strcat(info->print_buf, data);
 			memset(data, 0, 10);
 		}
 
-		printk("\n");
-		sprintf(data, "\n");
-		strcat(info->print_buf, data);
-		memset(data, 0, 10);
+		if (!info->read_all_data) {
+			printk("\n");
+			sprintf(data, "\n");
+			strcat(info->print_buf, data);
+			memset(data, 0, 10);
+		}
 	}
 
 	printk("\n");
@@ -403,31 +421,32 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 
 	memset(info->print_buf, 0, PAGE_SIZE);
 
-	//check test type
-	switch(test_type){
-	case MIP_TEST_TYPE_CM_DELTA:
-		//printk("=== Cm Delta Test ===\n");
-		sprintf(info->print_buf, "\n=== Cm Delta Test ===\n\n");
-		break;
-	case MIP_TEST_TYPE_CM_ABS:
-		//printk("=== Cm Abs Test ===\n");
-		sprintf(info->print_buf, "\n=== Cm Abs Test ===\n\n");
-		break;
-	case MIP_TEST_TYPE_CM_JITTER:
-		//printk("=== Cm Jitter Test ===\n");
-		sprintf(info->print_buf, "\n=== Cm Jitter Test ===\n\n");
-		break;
-	case MIP_TEST_TYPE_SHORT:
-		//printk("=== Short Test ===\n");
-		sprintf(info->print_buf, "\n=== Short Test ===\n\n");
-		break;
-	default:
-		dev_err(&info->client->dev, "%s [ERROR] Unknown test type\n", __func__);
-		sprintf(info->print_buf, "\nERROR : Unknown test type\n\n");
-		goto ERROR;
-		break;
+	if (!info->read_all_data) {
+		//check test type
+		switch(test_type){
+		case MIP_TEST_TYPE_CM_DELTA:
+			//printk("=== Cm Delta Test ===\n");
+			sprintf(info->print_buf, "\n=== Cm Delta Test ===\n\n");
+			break;
+		case MIP_TEST_TYPE_CM_ABS:
+			//printk("=== Cm Abs Test ===\n");
+			sprintf(info->print_buf, "\n=== Cm Abs Test ===\n\n");
+			break;
+		case MIP_TEST_TYPE_CM_JITTER:
+			//printk("=== Cm Jitter Test ===\n");
+			sprintf(info->print_buf, "\n=== Cm Jitter Test ===\n\n");
+			break;
+		case MIP_TEST_TYPE_SHORT:
+			//printk("=== Short Test ===\n");
+			sprintf(info->print_buf, "\n=== Short Test ===\n\n");
+			break;
+		default:
+			dev_err(&info->client->dev, "%s [ERROR] Unknown test type\n", __func__);
+			sprintf(info->print_buf, "\nERROR : Unknown test type\n\n");
+			goto ERROR;
+			break;
+		}
 	}
-
 	//set test mode
 	wbuf[0] = MIP_R0_CTRL;
 	wbuf[1] = MIP_R1_CTRL_MODE;
@@ -472,7 +491,8 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 		if (mms_get_ready_status(info) == MIP_CTRL_STATUS_READY) {
 			break;
 		}
-		msleep(10);
+//		msleep(10);
+		msleep(20);
 
 		dev_dbg(&info->client->dev, "%s - wait [%d]\n", __func__, wait_cnt);
 	}
@@ -608,21 +628,23 @@ int mms_get_image(struct mms_ts_info *info, u8 image_type)
 
 	memset(info->print_buf, 0, PAGE_SIZE);
 
-	//check image type
-	switch (image_type) {
-	case MIP_IMG_TYPE_INTENSITY:
-		dev_dbg(&info->client->dev, "=== Intensity Image ===\n");
-		sprintf(info->print_buf, "\n=== Intensity Image ===\n\n");
-		break;
-	case MIP_IMG_TYPE_RAWDATA:
-		dev_dbg(&info->client->dev, "=== Rawdata Image ===\n");
-		sprintf(info->print_buf, "\n=== Rawdata Image ===\n\n");
-		break;
-	default:
-		dev_err(&info->client->dev, "%s [ERROR] Unknown image type\n", __func__);
-		sprintf(info->print_buf, "\nERROR : Unknown image type\n\n");
-		goto ERROR;
-		break;
+	if (!info->read_all_data) {
+		//check image type
+		switch (image_type) {
+		case MIP_IMG_TYPE_INTENSITY:
+			dev_dbg(&info->client->dev, "=== Intensity Image ===\n");
+			sprintf(info->print_buf, "\n=== Intensity Image ===\n\n");
+			break;
+		case MIP_IMG_TYPE_RAWDATA:
+			dev_dbg(&info->client->dev, "=== Rawdata Image ===\n");
+			sprintf(info->print_buf, "\n=== Rawdata Image ===\n\n");
+			break;
+		default:
+			dev_err(&info->client->dev, "%s [ERROR] Unknown image type\n", __func__);
+			sprintf(info->print_buf, "\nERROR : Unknown image type\n\n");
+			goto ERROR;
+			break;
+		}
 	}
 
 	//set image type
@@ -1352,6 +1374,9 @@ static ssize_t mms_sys_test_short(struct device *dev,
 
 	dev_dbg(&info->client->dev, "%s [START] \n", __func__);
 
+	// this cmd don't use 
+	return 0;
+
 	if (mms_run_test(info, MIP_TEST_TYPE_SHORT)) {
 		dev_err(&info->client->dev, "%s [ERROR] mms_run_test\n", __func__);
 		return -1;
@@ -1436,7 +1461,9 @@ int mms_sysfs_create(struct mms_ts_info *info)
 		return -EAGAIN;
 	}
 
+#if !(MMS_USE_CMD_MODE)
 	info->print_buf = kzalloc(sizeof(u8) * 4096, GFP_KERNEL);
+#endif
 	info->image_buf =
 		kzalloc(sizeof(int) * ((info->node_x * info->node_y) + info->node_key),
 			GFP_KERNEL);
@@ -1455,7 +1482,9 @@ void mms_sysfs_remove(struct mms_ts_info *info)
 
 	sysfs_remove_group(&info->client->dev.kobj, &mms_test_attr_group);
 
+#if !(MMS_USE_CMD_MODE)
 	kfree(info->print_buf);
+#endif
 	kfree(info->image_buf);
 
 	dev_dbg(&info->client->dev, "%s [DONE]\n", __func__);

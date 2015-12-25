@@ -455,7 +455,7 @@ void clk_disable(struct clk *clk)
 	clk->count--;
 
 	if (!strcmp(name, "gcc_crypto_axi_clk")) {
-			pr_info("QMCK: gcc_crypto_axi_clk->count(%d) after dec\n", clk->count);
+//			pr_info("QMCK: gcc_crypto_axi_clk->count(%d) after dec\n", clk->count);
 			if (j_debug && !clk->count)
 				dump_stack();
 	}
@@ -994,6 +994,15 @@ static int __init clock_late_init(void)
 	}
 
 	list_for_each_entry_safe(h, h_temp, &handoff_list, list) {
+#ifdef CONFIG_SEC_MATISSEVE_PROJECT /*temp:gpio-clock for backlight: it should be alived in the first kernel */
+		if (!strcmp("gcc_gp3_clk", h->clk->dbg_name)) {
+			pr_info("%s: prepare_count[%d] enable[%d]\n",__func__,
+					h->clk->prepare_count, h->clk->count);
+			list_del(&h->list);
+			kfree(h);
+			continue;
+		}
+#endif
 		clk_disable_unprepare(h->clk);
 		list_del(&h->list);
 		kfree(h);

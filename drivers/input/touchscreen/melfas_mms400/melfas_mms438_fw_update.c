@@ -269,7 +269,7 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 			__func__, CHIP_NAME);
 
 		nRet = fw_err_file_type;
-		goto ERROR;
+		goto EXIT;
 	}
 
 	//Check chip firmware version
@@ -313,8 +313,7 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 			__func__, i, ver_chip[i], ver_file[i]);
 
 		//Compare section version
-		//if (ver_chip[i] < ver_file[i] || ver_chip[i] > ver_file[i] + 0x20) {
-		if (ver_chip[i] != ver_file[i]) {	// for K7
+		if (ver_chip[i] < ver_file[i] || ver_chip[i] > ver_file[i] + 0x20) {
 			//Set update flag
 			update_flag = true;
 			update_flags[i] = true;
@@ -466,10 +465,14 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 
 	nRet = 0;
 	dev_err(&client->dev, "%s [DONE]\n", __func__);
-	goto EXIT;
+	goto DONE;
 
 ERROR:
 	dev_err(&client->dev, "%s [ERROR]\n", __func__);
+
+DONE:
+	kfree(cpydata);
+	kfree(data);
 
 EXIT:
 	kfree(img);

@@ -186,6 +186,15 @@ int mms_enable(struct mms_ts_info *info)
 
 	mutex_unlock(&info->lock);
 
+#ifdef CONFIG_SEC_FACTORY
+#ifdef APPLY_RESOLUTION
+	{
+		u8 rbuf[8];
+		mms_get_fw_version(info, rbuf);
+		dev_err(&info->client->dev, "%s check fw ver : %x\n", __func__, info->config_ver_ic);
+	}
+#endif
+#endif
 	if (info->disable_esd == true) {
 		mms_disable_esd_alert(info);
 	}
@@ -217,7 +226,7 @@ int mms_disable(struct mms_ts_info *info)
 
 	mutex_unlock(&info->lock);
 
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	if (info->booster && info->booster->dvfs_set)
 		info->booster->dvfs_off(info->booster);
 #endif
@@ -249,6 +258,64 @@ static void mms_input_close(struct input_dev *dev)
 	mms_disable(info);
 	return;
 }
+#endif
+
+#if defined(CONFIG_TOUCHSCREEN_DUMP_MODE)
+
+struct delayed_work * p_ghost_check;
+void run_intensity_for_ghosttouch(struct mms_ts_info *info){
+
+	if (mms_get_image(info, MIP_IMG_TYPE_INTENSITY)) {
+		dev_err(&info->client->dev, "%s \n", "NG");
+	}
+}
+static void mms_ghost_touch_check(struct work_struct *work)
+{
+	struct mms_ts_info *info = container_of(work, struct mms_ts_info,
+						ghost_check.work);
+	int i;
+
+	if(info->tsp_dump_lock==1){
+		printk(KERN_ERR "%s, ignored ## already checking..\n", __func__);
+		return;
+	}
+
+	info->tsp_dump_lock = 1;
+	info->add_log_header = 1;
+	for(i=0; i<5; i++){
+		dev_err(&info->client->dev, "%s, start ##\n", __func__);
+		run_intensity_for_ghosttouch((void *)info);
+		msleep(100);
+
+	}
+	dev_err(&info->client->dev, "%s, done ##\n", __func__);
+	info->tsp_dump_lock = 0;
+	info->add_log_header = 0;
+
+}
+
+void dump_tsp_log(void)
+{
+	printk(KERN_ERR "mms %s: start \n", __func__);
+
+#if defined(CONFIG_SAMSUNG_LPM_MODE)
+	if (poweroff_charging) {
+		printk(KERN_ERR "%s, ignored ## lpm charging Mode!!\n", __func__);
+		return;
+	}
+#endif
+	if (p_ghost_check == NULL){
+		printk(KERN_ERR "%s, ignored ## tsp probe fail!!\n", __func__);
+		return;
+	}
+	schedule_delayed_work(p_ghost_check, msecs_to_jiffies(100));
+}
+#else
+void dump_tsp_log(void)
+{
+	printk(KERN_ERR "FTS %s: not support\n", __func__);
+}
+
 #endif
 
 /**
@@ -865,6 +932,7 @@ static int mms_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	input_dev->close = mms_input_close;
 #endif
 
+	input_set_events_per_packet(input_dev, 200);
 	input_set_drvdata(input_dev, info);
 	i2c_set_clientdata(client, info);
 
@@ -875,7 +943,7 @@ static int mms_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto err_input_register_device;
 	}
 
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	info->booster = input_booster_allocate(INPUT_BOOSTER_ID_TSP);
 	if (!info->booster) {
 		dev_err(&client->dev,
@@ -961,6 +1029,11 @@ static int mms_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto err_create_dev_link;
 	}
 
+#if defined(CONFIG_TOUCHSCREEN_DUMP_MODE)
+	INIT_DELAYED_WORK(&info->ghost_check, mms_ghost_touch_check);
+	p_ghost_check = &info->ghost_check;
+#endif
+
 	info->init = false;
 	dev_info(&client->dev,
 		"MELFAS " CHIP_NAME " Touchscreen is initialized successfully\n");
@@ -986,7 +1059,7 @@ err_test_dev_create:
 	mms_disable(info);
 	free_irq(info->irq, info);
 err_request_irq:
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	input_booster_free(info->booster);
 	info->booster = NULL;
 error_alloc_booster_failed:

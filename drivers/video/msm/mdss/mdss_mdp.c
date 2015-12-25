@@ -242,6 +242,7 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 
 	mdss_mdp_hw.irq_info->irq_buzy = true;
 
+	MDSS_XLOG(intr);
 	if (intr & MDSS_INTR_MDP) {
 		spin_lock(&mdp_lock);
 		mdata->mdss_util->irq_dispatch(MDSS_HW_MDP, irq, ptr);
@@ -3039,6 +3040,14 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 		mdata->fs_ena = false;
 	}
 }
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+void mdss_mdp_underrun_clk_info(void)
+{
+	pr_info(" mdp_clk = %ld, bus_ab = %llu, bus_ib = %llu\n",
+		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC), bus_ab_quota_dbg, bus_ib_quota_dbg);
+}
+#endif
 
 int mdss_mdp_secure_display_ctrl(unsigned int enable)
 {

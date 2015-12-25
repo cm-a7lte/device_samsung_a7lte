@@ -108,6 +108,13 @@ struct voice_dha_data {
 	short dha_select;
 	short dha_params[12];
 };
+
+enum {
+	LOOPBACK_DISABLE = 0,
+	LOOPBACK_ENABLE,
+	LOOPBACK_NODELAY,
+	LOOPBACK_MAX,
+};
 #endif /* CONFIG_SAMSUNG_AUDIO */
 
 enum {

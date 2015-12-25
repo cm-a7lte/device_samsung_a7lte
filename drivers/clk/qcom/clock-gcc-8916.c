@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,7 +56,6 @@ static void __iomem *virt_bases[N_BASES];
 #define GPLL1_USER_CTL					0x20010
 #define GPLL1_CONFIG_CTL				0x20014
 #define GPLL1_STATUS					0x2001C
-#define SNOC_QOSGEN					0x2601C
 #define GPLL2_MODE					0x4A000
 #define GPLL2_L_VAL					0x4A004
 #define GPLL2_M_VAL					0x4A008
@@ -223,6 +222,7 @@ static void __iomem *virt_bases[N_BASES];
 #define CAMSS_AHB_CMD_RCGR				0x5A000
 #define BIMC_GFX_CBCR					0x31024
 #define BIMC_GPU_CBCR					0x31040
+#define SNOC_QOSGEN					0x2601C
 
 #define APCS_SH_PLL_MODE				0x00000
 #define APCS_SH_PLL_L_VAL				0x00004
@@ -1218,6 +1218,7 @@ static struct rcg_clk sdcc2_apps_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_usb_hs_system_clk[] = {
 	F(  80000000,	   gpll0,  10,	  0,	0),
+	F( 100000000,	   gpll0,   8,	  0,	0),
 	F_END
 };
 
@@ -1230,7 +1231,7 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	.c = {
 		.dbg_name = "usb_hs_system_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 57140000, NOMINAL, 80000000),
+		VDD_DIG_FMAX_MAP2(LOW, 57140000, NOMINAL, 100000000),
 		CLK_INIT(usb_hs_system_clk_src.c),
 	},
 };
@@ -2347,7 +2348,6 @@ static struct gate_clk gcc_snoc_qosgen_clk = {
 		CLK_INIT(gcc_snoc_qosgen_clk.c),
 	},
 };
-
 
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;

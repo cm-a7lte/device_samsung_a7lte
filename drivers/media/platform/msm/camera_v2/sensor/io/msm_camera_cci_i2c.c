@@ -127,7 +127,7 @@ int32_t msm_camera_cci_i2c_write(struct msm_camera_i2c_client *client,
 	cci_ctrl.cfg.cci_i2c_write_cfg.data_type = data_type;
 	cci_ctrl.cfg.cci_i2c_write_cfg.addr_type = client->addr_type;
 	cci_ctrl.cfg.cci_i2c_write_cfg.size = 1;
-#if defined(CONFIG_SR200PC20)
+#if defined(CONFIG_SR200PC20) || defined(CONFIG_SR352) || defined(CONFIG_SR130PC20)
 	if (addr == 0xff){
 		pr_err("delay START = %d\n", (int)data*10);
 		mdelay(data*10);
@@ -274,7 +274,8 @@ int32_t msm_camera_cci_i2c_write_burst_table(
 		struct msm_camera_i2c_reg_setting *write_setting)
 {
 	int32_t rc = -EFAULT;
-	struct msm_camera_i2c_reg_array *reg_array = NULL;
+	//struct msm_camera_i2c_reg_array *reg_array = NULL;
+	struct msm_camera_i2c_burst_reg_array *reg_array = NULL;
 
 	if (!client || !write_setting) {
 		pr_err("[CCI]%s:%d failed\n", __func__, __LINE__);
@@ -291,7 +292,7 @@ int32_t msm_camera_cci_i2c_write_burst_table(
 	}
 
 	reg_array =
-		(struct msm_camera_i2c_reg_array *)write_setting->reg_setting;
+		(struct msm_camera_i2c_burst_reg_array *)write_setting->reg_setting;
 	pr_err("%s:%d size %d addr %x\n", __func__, __LINE__,
 			reg_array->delay, reg_array->reg_addr);
 	rc = msm_camera_cci_i2c_write_burst(client, reg_array->reg_addr,

@@ -112,7 +112,11 @@ struct sx9500_p {
 
 #ifdef CONFIG_SENSORS_SX9500_DEFENCE_CODE_FOR_TA_NOISE
 #include <linux/power_supply.h>
+#if defined(CONFIG_SEC_GT510_PROJECT)
+#define SX9500_NORMAL_TOUCH_CABLE_THRESHOLD	21
+#else
 #define SX9500_NORMAL_TOUCH_CABLE_THRESHOLD	28
+#endif
 
 static int check_ta_state(void)
 {

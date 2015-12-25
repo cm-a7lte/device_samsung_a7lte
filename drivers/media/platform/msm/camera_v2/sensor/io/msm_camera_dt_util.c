@@ -441,10 +441,20 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 				ps[i].seq_val = SENSOR_GPIO_RESET;
 			else if (!strcmp(seq_name, "sensor_gpio_standby"))
 				ps[i].seq_val = SENSOR_GPIO_STANDBY;
+			else if (!strcmp(seq_name, "sensor_gpio_vt_reset"))
+				ps[i].seq_val = SENSOR_GPIO_VT_RESET;
+			else if (!strcmp(seq_name, "sensor_gpio_vt_standby"))
+				ps[i].seq_val = SENSOR_GPIO_VT_STANDBY;
+			else if (!strcmp(seq_name, "sensor_gpio_vio"))
+				ps[i].seq_val = SENSOR_GPIO_VIO;
 			else if (!strcmp(seq_name, "sensor_gpio_vdig"))
 				ps[i].seq_val = SENSOR_GPIO_VDIG;
 			else if (!strcmp(seq_name, "sensor_gpio_vana"))
 				ps[i].seq_val = SENSOR_GPIO_VANA;
+			else if (!strcmp(seq_name, "qcom,gpio-ext-vana-power"))
+				ps[i].seq_val = SENSOR_GPIO_EXT_VANA_POWER;
+			else if (!strcmp(seq_name, "qcom,gpio-ext-camio-en"))
+				ps[i].seq_val = SENSOR_GPIO_EXT_CAMIO_EN;
 			else
 				rc = -EILSEQ;
 			break;
@@ -543,6 +553,19 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 				power_down_setting_t;
 			end--;
 		}
+#if defined(CONFIG_MACH_ROSSA_TMO)
+		for (c = 0; c < size; c ++) {
+			if(power_info->power_down_setting[c].seq_val == SENSOR_GPIO_VDIG)
+			{
+			      int i = c + 1;
+			      power_down_setting_t = power_info->power_down_setting[c];
+			      power_info->power_down_setting[c] = power_info->power_down_setting[i];
+			      power_info->power_down_setting[i] = power_down_setting_t;
+			      power_info->power_down_setting[c].delay = 0;
+			      break;
+			}
+		}
+#endif
 	}
 	return rc;
 ERROR2:
@@ -795,6 +818,27 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	} else
 		rc = 0;
 
+#if defined(CONFIG_MACH_ROSSA_TMO) || defined(CONFIG_SEC_A8_PROJECT)
+	rc = of_property_read_u32(of_node, "qcom,gpio-vt-reset", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vt-reset failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vt-reset invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VT_RESET] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VT_RESET] = 1;
+		CDBG("%s qcom,gpio-vt-reset %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VT_RESET]);
+	} else
+		rc = 0;
+#endif
 	rc = of_property_read_u32(of_node, "qcom,gpio-reset", &val);
 	if (rc != -EINVAL) {
 		if (rc < 0) {
@@ -832,6 +876,90 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		gconf->gpio_num_info->valid[SENSOR_GPIO_STANDBY] = 1;
 		CDBG("%s qcom,gpio-standby %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_STANDBY]);
+	} else
+		rc = 0;
+
+#if defined(CONFIG_SEC_GTEL_PROJECT)
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-ext-vana-power", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vana failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-standby invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_VANA_POWER] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_EXT_VANA_POWER] = 1;
+		CDBG("%s qcom,gpio-ext-vana-power %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_VANA_POWER]);
+	} else
+		rc = 0;
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-ext-vio-power", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vio failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-standby invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_CAMIO_EN] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_EXT_CAMIO_EN] = 1;
+		CDBG("%s qcom,gpio-ext-vio-power %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_EXT_CAMIO_EN]);
+	} else
+		rc = 0;
+
+#endif
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vt-reset", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vt-reset failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vt-reset invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VT_RESET] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VT_RESET] = 1;
+		CDBG("%s qcom,gpio-vt-reset %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VT_RESET]);
+	} else
+		rc = 0;
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vt-standby", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vt-standby failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vt-standby invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VT_STANDBY] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VT_STANDBY] = 1;
+		CDBG("%s qcom,gpio-vt-standby %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VT_STANDBY]);
 	} else
 		rc = 0;
 
@@ -921,6 +1049,163 @@ ERROR:
 	gconf->gpio_num_info = NULL;
 	return rc;
 }
+
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+int msm_camera_get_dt_camera_info(struct device_node *of_node, char *buf)
+{
+	int rc = 0, val = 0;
+	char camera_info[100] = {0, };
+
+	rc = of_property_read_u32(of_node, "cam,isp",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcpy(camera_info, "ISP=");
+	switch(val) {
+		case CAM_INFO_ISP_TYPE_INTERNAL :
+			strcat(camera_info, "INT;");
+			break;
+		case CAM_INFO_ISP_TYPE_EXTERNAL :
+			strcat(camera_info, "EXT;");
+			break;
+		case CAM_INFO_ISP_TYPE_SOC :
+			strcat(camera_info, "SOC;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	rc = of_property_read_u32(of_node, "cam,cal_memory",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcat(camera_info, "CALMEM=");
+	switch(val) {
+		case CAM_INFO_CAL_MEM_TYPE_NONE :
+			strcat(camera_info, "N;");
+			break;
+		case CAM_INFO_CAL_MEM_TYPE_FROM :
+		case CAM_INFO_CAL_MEM_TYPE_EEPROM :
+		case CAM_INFO_CAL_MEM_TYPE_OTP :
+			strcat(camera_info, "Y;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	rc = of_property_read_u32(of_node, "cam,read_version",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcat(camera_info, "READVER=");
+	switch(val) {
+		case CAM_INFO_READ_VER_SYSFS :
+			strcat(camera_info, "SYSFS;");
+			break;
+		case CAM_INFO_READ_VER_CAMON :
+			strcat(camera_info, "CAMON;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	rc = of_property_read_u32(of_node, "cam,core_voltage",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcat(camera_info, "COREVOLT=");
+	switch(val) {
+		case CAM_INFO_CORE_VOLT_NONE :
+			strcat(camera_info, "N;");
+			break;
+		case CAM_INFO_CORE_VOLT_USE :
+			strcat(camera_info, "Y;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	rc = of_property_read_u32(of_node, "cam,upgrade",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcat(camera_info, "UPGRADE=");
+	switch(val) {
+		case CAM_INFO_FW_UPGRADE_NONE :
+			strcat(camera_info, "N;");
+			break;
+		case CAM_INFO_FW_UPGRADE_SYSFS :
+			strcat(camera_info, "SYSFS;");
+			break;
+		case CAM_INFO_FW_UPGRADE_CAMON :
+			strcat(camera_info, "CAMON;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	rc = of_property_read_u32(of_node, "cam,companion_chip",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcat(camera_info, "CC=");
+	switch(val) {
+		case CAM_INFO_COMPANION_NONE :
+			strcat(camera_info, "N;");
+			break;
+		case CAM_INFO_COMPANION_USE :
+			strcat(camera_info, "Y;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	rc = of_property_read_u32(of_node, "cam,ois",
+			&val);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR1;
+	}
+	strcat(camera_info, "OIS=");
+	switch(val) {
+		case CAM_INFO_OIS_NONE :
+			strcat(camera_info, "N;");
+			break;
+		case CAM_INFO_OIS_USE :
+			strcat(camera_info, "Y;");
+			break;
+		default :
+			strcat(camera_info, "NULL;");
+			break;
+	}
+
+	snprintf(buf, sizeof(camera_info), "%s", camera_info);
+	return 0;
+
+ERROR1:
+	strcpy(camera_info, "ISP=NULL;CALMEM=NULL;READVER=NULL;COREVOLT=NULL;UPGRADE=NULL;FW_CC=NULL;OIS=NULL");
+	snprintf(buf, sizeof(camera_info), "%s", camera_info);
+	return 0;
+}
+#endif
 
 int msm_camera_get_dt_vreg_data(struct device_node *of_node,
 	struct camera_vreg_t **cam_vreg, int *num_vreg)
@@ -1184,12 +1469,19 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 				power_setting->seq_type);
 			break;
 		}
+#if defined(CONFIG_SR352) && defined(CONFIG_SR130PC20)
+		if (power_setting->delay) {
+			usleep_range(power_setting->delay * 100,
+				(power_setting->delay * 100) + 100);
+		}
+#else
 		if (power_setting->delay > 20) {
 			msleep(power_setting->delay);
 		} else if (power_setting->delay) {
 			usleep_range(power_setting->delay * 1000,
 				(power_setting->delay * 1000) + 1000);
 		}
+#endif
 	}
 
 	if (device_type == MSM_CAMERA_PLATFORM_DEVICE) {
@@ -1241,12 +1533,19 @@ power_up_failed:
 				power_setting->seq_type);
 			break;
 		}
+#if defined(CONFIG_SR352) && defined(CONFIG_SR130PC20)
+		if (power_setting->delay) {
+			usleep_range(power_setting->delay * 100,
+				(power_setting->delay * 100) + 100);
+		}
+#else
 		if (power_setting->delay > 20) {
 			msleep(power_setting->delay);
 		} else if (power_setting->delay) {
 			usleep_range(power_setting->delay * 1000,
 				(power_setting->delay * 1000) + 1000);
 		}
+#endif
 	}
 	if (ctrl->cam_pinctrl_status) {
 		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
@@ -1370,12 +1669,19 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 				pd->seq_type);
 			break;
 		}
+#if defined(CONFIG_SR352) && defined(CONFIG_SR130PC20)
+		if (pd->delay) {
+			usleep_range(pd->delay * 100,
+				(pd->delay * 100) + 100);
+		}
+#else
 		if (pd->delay > 20) {
 			msleep(pd->delay);
 		} else if (pd->delay) {
 			usleep_range(pd->delay * 1000,
 				(pd->delay * 1000) + 1000);
 		}
+#endif
 	}
 	if (ctrl->cam_pinctrl_status) {
 		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,

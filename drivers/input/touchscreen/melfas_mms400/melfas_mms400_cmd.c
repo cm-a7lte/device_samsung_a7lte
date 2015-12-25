@@ -124,6 +124,8 @@ static void cmd_get_fw_ver_bin(void *device_data)
 	sprintf(buf, "ME%02X%02X%02X\n", info->dtdata->panel, ver_file[3],ver_file[5]);
 	info->cmd_state = CMD_STATUS_OK;
 
+	kfree(img);
+
 EXIT:
 	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
 	dev_dbg(&info->client->dev, "%s - cmd[%s] len[%d] state[%d]\n",
@@ -301,7 +303,8 @@ static void cmd_get_max_x(void *device_data)
 		goto EXIT;
 	}
 
-	val = (rbuf[0] << 8) | rbuf[1];
+	//val = (rbuf[0] << 8) | rbuf[1];
+	val = (rbuf[0]) | (rbuf[1] << 8);
 
 	sprintf(buf, "%d", val);
 	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
@@ -333,7 +336,8 @@ static void cmd_get_max_y(void *device_data)
 		goto EXIT;
 	}
 
-	val = (rbuf[0] << 8) | rbuf[1];
+	//val = (rbuf[0] << 8) | rbuf[1];
+	val = (rbuf[0]) | (rbuf[1] << 8);
 
 	sprintf(buf, "%d", val);
 	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
@@ -443,7 +447,7 @@ static void cmd_get_intensity(void *device_data)
 		goto EXIT;
 	}
 
-	idx = x + info->node_y * y;
+	idx = x + y * info->node_x;
 
 	sprintf(buf, "%d", info->image_buf[idx]);
 	info->cmd_state = CMD_STATUS_OK;
@@ -512,7 +516,7 @@ static void cmd_get_rawdata(void *device_data)
 		goto EXIT;
 	}
 
-	idx = x + y * info->node_y;
+	idx = x + y * info->node_x;
 
 	sprintf(buf, "%d", info->image_buf[idx]);
 	info->cmd_state = CMD_STATUS_OK;
@@ -581,7 +585,7 @@ static void cmd_get_cm_delta(void *device_data)
 		goto EXIT;
 	}
 
-	idx = x + y * info->node_y;
+	idx = x + y * info->node_x;
 
 	sprintf(buf, "%d", info->image_buf[idx]);
 	info->cmd_state = CMD_STATUS_OK;
@@ -650,7 +654,7 @@ static void cmd_get_cm_abs(void *device_data)
 		goto EXIT;
 	}
 
-	idx = x + y * info->node_y;
+	idx = x + y * info->node_x;
 
 	sprintf(buf, "%d", info->image_buf[idx]);
 	info->cmd_state = CMD_STATUS_OK;
@@ -676,12 +680,79 @@ static void cmd_get_threshold(void *device_data)
 		__func__, buf, strnlen(buf, sizeof(buf)), info->cmd_state);
 }
 
-#ifdef TSP_BOOSTER
+static void dead_zone_enable(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	char buf[64] = { 0 };
+	u8 wbuf[4];
+
+	cmd_clear_result(info);
+
+	wbuf[0] = MIP_R0_CTRL;
+	wbuf[1] = MIP_R1_CTRL_DISABLE_EDGE_EXPAND;
+	wbuf[2] = 0;
+
+	if(info->cmd_param[0]==0){
+		wbuf[2] = 2;
+	}else if(info->cmd_param[0]==1){
+		wbuf[2] = 0;
+	}else{
+		sprintf(buf, "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+		goto EXIT;
+	}
+
+	if (mms_i2c_write(info, wbuf, 3)) {
+		dev_err(&info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
+		sprintf(buf, "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+	}else{
+		sprintf(buf, "OK");
+		info->cmd_state = CMD_STATUS_OK;
+	}
+
+EXIT:
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+
+
+	dev_dbg(&info->client->dev, "%s - cmd[%s] len[%d] state[%d]\n",
+		__func__, buf, strnlen(buf, sizeof(buf)), info->cmd_state);
+}
+
+static void get_checksum_data(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	char buf[64] = { 0 };
+	u8 wbuf[4];
+	u8 rbuf[12];
+
+	cmd_clear_result(info);
+
+	wbuf[0] = MIP_R0_INFO;
+	wbuf[1] = MIP_R1_INFO_BUILD_DATE;
+
+	if (mms_i2c_read(info, wbuf, 2, rbuf, 12)) {
+		info->cmd_state = CMD_STATUS_FAIL;
+		sprintf(buf, "NG");
+		goto EXIT;
+	}
+	snprintf(buf, sizeof(buf), "%02X%02X", rbuf[11], rbuf[10]);
+	info->cmd_state = CMD_STATUS_OK;
+
+EXIT:
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+	dev_dbg(&info->client->dev, "%s - cmd[%s] len[%d] state[%d]\n",
+		__func__, buf, strnlen(buf, sizeof(buf)), info->cmd_state);
+}
+
+
+
+#ifdef CONFIG_INPUT_BOOSTER
 static void cmd_boost_level(void *device_data)
 {
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
 	struct i2c_client *client = info->client;
-	int stage, retval;
+	int stage;
 	char buf[64] = { 0 };
 
 	cmd_clear_result(info);
@@ -689,6 +760,13 @@ static void cmd_boost_level(void *device_data)
 	stage = 1 << info->cmd_param[0];
 
 	dev_err(&client->dev, "%s,%d(%x)\n", __func__, info->cmd_param[0], stage);
+
+	if(!(info->booster)){
+		sprintf(buf, "%s", "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+		dev_err(&info->client->dev," %s, booster is null \n", __func__);
+		goto out;
+	}
 
 	if (!(info->booster->dvfs_stage & stage)) {
 		sprintf(buf, "%s", "NG");
@@ -700,17 +778,13 @@ static void cmd_boost_level(void *device_data)
 	}
 
 	info->booster->dvfs_boost_mode = stage;
+	input_booster_set_level_change(info->cmd_param[0]);
 	sprintf(buf, "%s", "OK");
 	info->cmd_state = CMD_STATUS_OK;
 
 	if (info->booster->dvfs_boost_mode == DVFS_STAGE_NONE) {
-		retval = info->booster->dvfs_off(info->booster);
-		if (retval < 0) {
-			dev_err(&info->client->dev,
-				"%s: booster stop failed(%d).\n", __func__, retval);
-			sprintf(buf, "%s", "NG");
-			info->cmd_state = CMD_STATUS_FAIL;
-		}
+		if (info->booster->dvfs_set)
+			info->booster->dvfs_set(info->booster, -1);
 	}
 
 out:
@@ -732,6 +806,8 @@ static void get_intensity_all_data(void *device_data)
 
 	cmd_clear_result(info);
 
+	info->read_all_data = true;
+
 	ret = mms_get_image(info, MIP_IMG_TYPE_INTENSITY);
 	if (ret < 0) {
 		dev_err(&info->client->dev, "%s: failed to read intensity, %d\n", __func__, ret);
@@ -746,6 +822,8 @@ static void get_intensity_all_data(void *device_data)
 
 out:
 	cmd_set_result(info, info->print_buf, length);
+
+	info->read_all_data = false;
 
 	mutex_lock(&info->lock);
 	info->cmd_busy = false;
@@ -762,6 +840,8 @@ static void get_rawdata_all_data(void *device_data)
 
 	cmd_clear_result(info);
 
+	info->read_all_data = true;
+
 	ret = mms_get_image(info, MIP_IMG_TYPE_RAWDATA);
 	if (ret < 0) {
 		dev_err(&info->client->dev, "%s: failed to read raw data, %d\n", __func__, ret);
@@ -775,6 +855,8 @@ static void get_rawdata_all_data(void *device_data)
 
 out:
 	cmd_set_result(info, info->print_buf, length);
+
+	info->read_all_data = false;
 
 	mutex_lock(&info->lock);
 	info->cmd_busy = false;
@@ -792,6 +874,8 @@ static void get_cm_delta_all_data(void *device_data)
 
 	cmd_clear_result(info);
 
+	info->read_all_data = true;
+
 	ret = mms_run_test(info, MIP_TEST_TYPE_CM_DELTA);
 	if (ret < 0) {
 		dev_err(&info->client->dev, "%s: failed to read cm delta, %d\n", __func__, ret);
@@ -805,6 +889,8 @@ static void get_cm_delta_all_data(void *device_data)
 
 out:
 	cmd_set_result(info, info->print_buf, length);
+
+	info->read_all_data = false;
 
 	mutex_lock(&info->lock);
 	info->cmd_busy = false;
@@ -823,6 +909,8 @@ static void get_cm_abs_all_data(void *device_data)
 
 	cmd_clear_result(info);
 
+	info->read_all_data = true;
+
 	ret = mms_run_test(info, MIP_TEST_TYPE_CM_ABS);
 	if (ret < 0) {
 		dev_err(&info->client->dev, "%s: failed to read cm abs, %d\n", __func__, ret);
@@ -836,6 +924,8 @@ static void get_cm_abs_all_data(void *device_data)
 
 out:
 	cmd_set_result(info, info->print_buf, length);
+
+	info->read_all_data = false;
 
 	mutex_lock(&info->lock);
 	info->cmd_busy = false;
@@ -857,6 +947,10 @@ static void cmd_unknown_cmd(void *device_data)
 
 	snprintf(buf, sizeof(buf), "%s", NAME_OF_UNKNOWN_CMD);
 	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
 
 	info->cmd_state = CMD_STATUS_NONE;
 
@@ -902,7 +996,7 @@ static struct mms_cmd mms_commands[] = {
 	{MMS_CMD("get_cm_abs", cmd_get_cm_abs),},
 	{MMS_CMD("get_config_ver", cmd_get_config_ver),},
 	{MMS_CMD("get_threshold", cmd_get_threshold),},
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	{MMS_CMD("boost_level", cmd_boost_level),},
 #endif
 	{MMS_CMD("get_intensity_all_data", get_intensity_all_data),},
@@ -911,6 +1005,8 @@ static struct mms_cmd mms_commands[] = {
 	{MMS_CMD("get_cm_abs_all_data", get_cm_abs_all_data),},
 	{MMS_CMD("module_off_slave", cmd_unknown_cmd),},
 	{MMS_CMD("module_on_slave", cmd_unknown_cmd),},
+	{MMS_CMD("dead_zone_enable", dead_zone_enable),},
+	{MMS_CMD("get_checksum_data", get_checksum_data),},
 	{MMS_CMD(NAME_OF_UNKNOWN_CMD, cmd_unknown_cmd),},
 };
 
@@ -930,15 +1026,14 @@ static ssize_t mms_sys_cmd(struct device *dev, struct device_attribute *devattr,
 	bool cmd_found = false;
 	int param_cnt = 0;
 
-	dev_dbg(&info->client->dev, "%s [START]\n", __func__);
-	dev_dbg(&info->client->dev, "%s - input [%s]\n", __func__, buf);
-
 	if (!info) {
-		dev_err(&info->client->dev,
-			"%s [ERROR] mms_ts_info not found\n", __func__);
+		pr_err("%s [ERROR] mms_ts_info not found\n", __func__);
 		ret = -EINVAL;
 		goto ERROR;
 	}
+
+	dev_dbg(&info->client->dev, "%s [START]\n", __func__);
+	dev_dbg(&info->client->dev, "%s - input [%s]\n", __func__, buf);
 
 	if (!info->input_dev) {
 		dev_err(&info->client->dev,
@@ -1029,7 +1124,7 @@ static ssize_t mms_sys_cmd(struct device *dev, struct device_attribute *devattr,
 	return count;
 
 ERROR:
-	dev_err(&info->client->dev, "%s [ERROR]\n", __func__);
+	pr_err("%s [ERROR]\n", __func__);
 	return count;
 }
 static DEVICE_ATTR(cmd, 0666, NULL, mms_sys_cmd);

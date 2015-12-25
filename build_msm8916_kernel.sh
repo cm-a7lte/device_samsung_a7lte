@@ -89,14 +89,11 @@ elif [ "$BUILD_COMMAND" == "fortuna_tmo" ]; then
 elif [ "$BUILD_COMMAND" == "fortuna_spr" ]; then
 	PRODUCT_NAME=gprimeltespr;
 	SIGN_MODEL=
-elif [ "$BUILD_COMMAND" == "rossa_spr" ]; then
-	PRODUCT_NAME=rossalte;
-	SIGN_MODEL=
 elif [ "$BUILD_COMMAND" == "rossa_tmo" ]; then
 	PRODUCT_NAME=rossaltetmo;
 	SIGN_MODEL=
-elif [ "$BUILD_COMMAND" == "rossa_vzw" ]; then
-	PRODUCT_NAME=rossaltevzw;
+elif [ "$BUILD_COMMAND" == "xcover3_dcm" ]; then
+	PRODUCT_NAME=xcover3ltedcm;
 	SIGN_MODEL=
 elif [ "$BUILD_COMMAND" == "j1_vzw" ]; then
 	PRODUCT_NAME=j1qltevzw;
@@ -400,9 +397,8 @@ SECFUNC_PRINT_HELP()
 	echo "	for FORTUNA_USA_USC use fortuna_usc"
 	echo "	for FORTUNA_USA_TMO use fortuna_tmo"
 	echo "	for FORTUNA_USA_SPR use fortuna_spr"
-	echo "	for ROSSA_USA_SPR use rossa_spr"
 	echo "	for ROSSA_USA_TMO use rossa_tmo"
-	echo "	for ROSSA_USA_VZW use rossa_vzw"
+	echo "	for XCOVER3_JPN_DCM use xcover3_dcm"
         echo "	for J1QLTE_USA_VZW use j1_vzw"
 	echo "  \$2 : "
 	echo "	-B or Nothing  (-B : Secure Binary)"

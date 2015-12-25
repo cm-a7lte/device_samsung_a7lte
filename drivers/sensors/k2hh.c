@@ -187,6 +187,7 @@ struct k2hh_p {
 
 	const char *str_vdd;
 	const char *str_vio;
+	u64 old_timestamp;
 };
 
 #define ACC_ODR10		0x10	/*   10Hz output data rate */
@@ -408,8 +409,8 @@ static int k2hh_set_hr(struct k2hh_p *data, int set)
 #if defined(OUTPUT_ALWAYS_ANTI_ALIASED)
 		bw = K2HH_ACC_BW_SCALE_ODR_DISABLE;
 		k2hh_i2c_read(data, CTRL4_REG, &buf, 1);
-		buf = (K2HH_ACC_BW_SCALE_ODR_MASK & bw)\
-				| ((~K2HH_ACC_BW_SCALE_ODR_MASK) & buf);
+		buf = (K2HH_ACC_BW_SCALE_ODR_MASK & bw)
+			| ((~K2HH_ACC_BW_SCALE_ODR_MASK) & buf);
 		k2hh_i2c_write(data, CTRL4_REG, buf);
 #endif
 	}
@@ -479,7 +480,7 @@ static int k2hh_open_calibration(struct k2hh_p *data)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_filp = filp_open(CALIBRATION_FILE_PATH, O_RDONLY, 0666);
+	cal_filp = filp_open(CALIBRATION_FILE_PATH, O_RDONLY, 0);
 	if (IS_ERR(cal_filp)) {
 		set_fs(old_fs);
 		ret = PTR_ERR(cal_filp);
@@ -567,7 +568,7 @@ static int k2hh_do_calibrate(struct k2hh_p *data, int enable)
 	set_fs(KERNEL_DS);
 
 	cal_filp = filp_open(CALIBRATION_FILE_PATH,
-			O_CREAT | O_TRUNC | O_WRONLY, 0666);
+		O_CREAT | O_TRUNC | O_WRONLY, 0660);
 	if (IS_ERR(cal_filp)) {
 		pr_err("[SENSOR]: %s - Can't open calibration file\n",
 			__func__);
@@ -608,6 +609,9 @@ static void k2hh_work_func(struct work_struct *work)
 	int ret;
 	struct k2hh_v acc;
 	struct k2hh_p *data = container_of(work, struct k2hh_p, work);
+	struct timespec ts = ktime_to_timespec(ktime_get_boottime());
+	u64 timestamp_new = ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+	int time_hi, time_lo;
 
 	ret = k2hh_read_accel_xyz(data, &acc);
 	if (ret < 0)
@@ -616,11 +620,32 @@ static void k2hh_work_func(struct work_struct *work)
 	data->accdata.x = acc.x - data->caldata.x;
 	data->accdata.y = acc.y - data->caldata.y;
 	data->accdata.z = acc.z - data->caldata.z;
+	if (data->old_timestamp != 0 &&
+		((timestamp_new - data->old_timestamp) > ktime_to_ms(data->poll_delay) * 1800000LL)) {
+		u64 delay = ktime_to_ns(data->poll_delay);
+		u64 shift_timestamp = delay >> 1;
+		u64 timestamp = 0ULL;
+		for (timestamp = data->old_timestamp + delay; timestamp < timestamp_new - shift_timestamp; timestamp+=delay) {
+			time_hi = (int)((timestamp & TIME_HI_MASK) >> TIME_HI_SHIFT);
+			time_lo = (int)(timestamp & TIME_LO_MASK);
+			input_report_rel(data->input, REL_X, data->accdata.x);
+			input_report_rel(data->input, REL_Y, data->accdata.y);
+			input_report_rel(data->input, REL_Z, data->accdata.z);
+			input_report_rel(data->input, REL_DIAL, time_hi);
+			input_report_rel(data->input, REL_MISC, time_lo);
+			input_sync(data->input);
+		}
+	}
 
+	time_hi = (int)((timestamp_new & TIME_HI_MASK) >> TIME_HI_SHIFT);
+	time_lo = (int)(timestamp_new & TIME_LO_MASK);
 	input_report_rel(data->input, REL_X, data->accdata.x);
 	input_report_rel(data->input, REL_Y, data->accdata.y);
 	input_report_rel(data->input, REL_Z, data->accdata.z);
+	input_report_rel(data->input, REL_DIAL, time_hi);
+	input_report_rel(data->input, REL_MISC, time_lo);
 	input_sync(data->input);
+	data->old_timestamp = timestamp_new;
 
 exit:
 	if ((ktime_to_ns(data->poll_delay) * (int64_t)data->time_count)
@@ -662,7 +687,7 @@ static ssize_t k2hh_enable_store(struct device *dev,
 #ifdef CONFIG_MACH_J1_VZW
 			k2hh_regulator_onoff(data, true);
 #endif
-
+			data->old_timestamp = 0LL;
 			k2hh_open_calibration(data);
 			k2hh_set_range(data, K2HH_RANGE_4G);
 			k2hh_set_bw(data);
@@ -707,6 +732,8 @@ static ssize_t k2hh_delay_store(struct device *dev,
 		pr_err("[SENSOR]: %s - Invalid Argument\n", __func__);
 		return ret;
 	}
+	if (delay > K2HH_DEFAULT_DELAY)
+		delay = K2HH_DEFAULT_DELAY;
 
 #ifdef CONFIG_MACH_J1_VZW
 	k2hh_regulator_onoff(data, true);
@@ -1169,6 +1196,8 @@ static int k2hh_input_init(struct k2hh_p *data)
 	input_set_capability(dev, EV_REL, REL_X);
 	input_set_capability(dev, EV_REL, REL_Y);
 	input_set_capability(dev, EV_REL, REL_Z);
+	input_set_capability(dev, EV_REL, REL_DIAL);
+	input_set_capability(dev, EV_REL, REL_MISC);
 	input_set_drvdata(dev, data);
 
 	ret = input_register_device(dev);
@@ -1273,19 +1302,20 @@ static int k2hh_regulator_onoff(struct k2hh_p *data, bool onoff)
 
 #ifdef CONFIG_SENSORS_K2HH_VDD
 #ifdef CONFIG_MACH_J1_VZW
-	if (!data->reg_vdd){
+	if (!data->reg_vdd) {
 		pr_info("%s VDD get regulator\n", __func__);
 #endif
-		data->reg_vdd = devm_regulator_get(&data->client->dev, "stm,vdd");
+		data->reg_vdd = devm_regulator_get(&data->client->dev,
+			"stm,vdd");
 		if (IS_ERR(data->reg_vdd)) {
-			pr_err("could not get vdd, %ld\n", PTR_ERR(data->reg_vdd));
+			pr_err("%s: could not get vdd, %ld\n",
+				__func__, PTR_ERR(data->reg_vdd));
 			ret = -ENODEV;
 			goto err_vdd;
 		}
 #ifndef CONFIG_MACH_J1_VZW
-		else if (!regulator_get_voltage(data->reg_vdd)) {
-			ret = regulator_set_voltage(data->reg_vdd, 2850000, 2850000);
-		}
+		else if (!regulator_get_voltage(data->reg_vdd))
+			regulator_set_voltage(data->reg_vdd, 2850000, 2850000);
 #else
 		regulator_set_voltage(data->reg_vdd, 2850000, 2850000);
 	}
@@ -1293,19 +1323,20 @@ static int k2hh_regulator_onoff(struct k2hh_p *data, bool onoff)
 #endif
 
 #ifdef CONFIG_MACH_J1_VZW
-	if (!data->reg_vio){
+	if (!data->reg_vio) {
 		pr_info("%s VIO get regulator\n", __func__);
 #endif
-		data->reg_vio = devm_regulator_get(&data->client->dev, "stm,vio");
+		data->reg_vio = devm_regulator_get(&data->client->dev,
+			"stm,vio");
 		if (IS_ERR(data->reg_vio)) {
-			pr_err("could not get vio, %ld\n", PTR_ERR(data->reg_vio));
+			pr_err("%s: could not get vio, %ld\n",
+				__func__, PTR_ERR(data->reg_vio));
 			ret = -ENODEV;
 			goto err_vio;
 		}
 #ifndef CONFIG_MACH_J1_VZW
-		else if (!regulator_get_voltage(data->reg_vio)) {
-			ret = regulator_set_voltage(data->reg_vio, 1800000, 1800000);
-		}
+		else if (!regulator_get_voltage(data->reg_vio))
+			regulator_set_voltage(data->reg_vio, 1800000, 1800000);
 #else
 		regulator_set_voltage(data->reg_vio, 1800000, 1800000);
 	}
@@ -1493,15 +1524,13 @@ static int k2hh_remove(struct i2c_client *client)
 
 #ifdef CONFIG_MACH_J1_VZW
 #ifdef CONFIG_SENSORS_K2HH_VDD
-	if(data->reg_vdd)
-	{
+	if (data->reg_vdd) {
 		pr_info("%s VDD put\n", __func__);
 		devm_regulator_put(data->reg_vdd);
 	}
 #endif
 
-	if(data->reg_vio)
-	{
+	if (data->reg_vio) {
 		pr_info("%s VIO put\n", __func__);
 		devm_regulator_put(data->reg_vio);
 	}

@@ -137,8 +137,8 @@ ssize_t cpufreq_limit_get_table(char *buf)
 {
 	ssize_t len = 0;
 	int i, count = 0;
-    
 	unsigned int freq;
+
 	struct cpufreq_frequency_table *table;
 
 	/* BIG cluster table */
@@ -152,7 +152,6 @@ ssize_t cpufreq_limit_get_table(char *buf)
 		count = i;
 
 	for (i = count; i >= 0; i--) {
-		//unsigned int freq;
 		freq = table[i].frequency;
 
 		if (freq == CPUFREQ_ENTRY_INVALID || freq < hmp_param.big_min_freq)
@@ -176,7 +175,6 @@ ssize_t cpufreq_limit_get_table(char *buf)
 		count = i;
 
 	for (i = count; i >= 0; i--) {
-		//unsigned int freq;
 		freq = table[i].frequency / hmp_param.little_divider;
 
 		if (freq == CPUFREQ_ENTRY_INVALID)
@@ -235,8 +233,8 @@ static int cpufreq_limit_hmp_boost(int enable)
 static int cpufreq_limit_adjust_freq(struct cpufreq_policy *policy,
 		unsigned long *min, unsigned long *max)
 {
+	unsigned int hmp_boost_active = 0;
 
-     	unsigned int hmp_boost_active = 0;
 	pr_debug("%s+: cpu=%d, min=%ld, max=%ld\n", __func__, policy->cpu, *min, *max);
 
 	if (is_little(policy->cpu)) { /* Little */
@@ -255,7 +253,6 @@ static int cpufreq_limit_adjust_freq(struct cpufreq_policy *policy,
 		}
 	}
 	else { /* BIG */
-		//unsigned int hmp_boost_active = 0;
 		if (*min >= hmp_param.big_min_freq) { /* Big clock */
 			hmp_boost_active = 1;
 		}

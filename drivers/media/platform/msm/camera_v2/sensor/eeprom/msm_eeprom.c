@@ -26,6 +26,10 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
+#ifdef CONFIG_CAM_PN547_PVDD_EN_CONTROL
+extern int system_rev;
+#endif
+
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 
 /**
@@ -119,6 +123,9 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 	int j;
 	struct msm_eeprom_memory_map_t *emap = block->map;
 	uint8_t *memptr = block->mapdata;
+#ifdef CONFIG_SEC_A8_PROJECT
+	uint32_t size = 0;
+#endif
 
 	pr_err("%s Enter \n", __func__);
 
@@ -160,6 +167,52 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 
 		if (emap[j].mem.valid_size) {
 			e_ctrl->i2c_client.addr_type = emap[j].mem.addr_t;
+
+#ifdef CONFIG_SEC_A8_PROJECT
+                        /* In A8 Project, EEPROM uses QUP I2C, QUP supports 3825bytes I2C read at a time,
+                           Here 4608Bytes will be read from EEPROM, So 4608Bytes are divided into two parts,
+			   3824 bytes and 784 bytes. */
+                        if(emap[j].mem.valid_size > 3824)
+			{
+				size = 3824;
+				CDBG("%s %d mem.addr %x memptr %x size %d\n", __func__, __LINE__, \
+					(uint32_t)emap[j].mem.addr, (uint32_t)memptr, size);
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
+					&(e_ctrl->i2c_client), emap[j].mem.addr,
+					memptr, size);
+				if (rc < 0) {
+					pr_err("%s: read failed\n", __func__);
+					return rc;
+				}
+
+				size = emap[j].mem.valid_size - 3824;
+				memptr += 3824;
+
+				CDBG("%s %d mem.addr %x memptr %x size %d\n", __func__, __LINE__, \
+					(uint32_t)(emap[j].mem.addr + 3824), (uint32_t)memptr, size);
+                                rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
+                                        &(e_ctrl->i2c_client),(emap[j].mem.addr + 3824) ,
+                                        memptr, size);
+                                if (rc < 0) {
+                                        pr_err("%s: read failed\n", __func__);
+                                        return rc;
+                                }
+				memptr += size;
+			}
+			else
+			{
+				CDBG("%s %d mem.addr %x memptr %x size %d\n", __func__, __LINE__, \
+					(uint32_t)emap[j].mem.addr, (uint32_t)memptr, emap[j].mem.valid_size);
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
+					&(e_ctrl->i2c_client), emap[j].mem.addr,
+					memptr, emap[j].mem.valid_size);
+				if (rc < 0) {
+					pr_err("%s: read failed\n", __func__);
+					return rc;
+				}
+				memptr += emap[j].mem.valid_size;
+			}
+#else
 			pr_err("%s %d \n", __func__, __LINE__);
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
 				&(e_ctrl->i2c_client), emap[j].mem.addr,
@@ -170,6 +223,7 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 				return rc;
 			}
 			memptr += emap[j].mem.valid_size;
+#endif
 		}
 	}
 
@@ -1250,10 +1304,26 @@ static int msm_eeprom_i2c_probe(struct i2c_client *client,
 		pr_err("%s failed power up %d\n", __func__, __LINE__);
 		goto memdata_free;
 	}
+
+#ifdef CONFIG_CAM_PN547_PVDD_EN_CONTROL
+	if (system_rev > 7 && e_ctrl->eboard_info->i2c_slaveaddr == 0xB0) {
+		e_ctrl->pvdd_en = of_get_named_gpio(of_node, "qcom,pvdd_en", 0);
+
+		rc = gpio_request(e_ctrl->pvdd_en, NULL);
+		if (rc) {
+			pr_err("failed to request about pvdd_en pin. rc = %d system_rev = %d \n", rc, system_rev);
+			gpio_free(e_ctrl->pvdd_en);
+			return -ENODEV;
+		}
+		gpio_direction_output(e_ctrl->pvdd_en, 1);
+	}
+#endif
+
 	if (e_ctrl->cal_data.map) {
 		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc < 0) {
 			pr_err("%s: read cal data failed\n", __func__);
+			gpio_free(e_ctrl->pvdd_en);
 			goto power_down;
 		}
 		e_ctrl->is_supported |= msm_eeprom_match_crc(
@@ -1285,6 +1355,12 @@ static int msm_eeprom_i2c_probe(struct i2c_client *client,
 	e_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_EEPROM;
 	msm_sd_register(&e_ctrl->msm_sd);
 	e_ctrl->is_supported = 1;
+#ifdef CONFIG_CAM_PN547_PVDD_EN_CONTROL
+	if (system_rev > 7 && e_ctrl->eboard_info->i2c_slaveaddr == 0xB0) {
+		gpio_direction_output(e_ctrl->pvdd_en, 0);
+		gpio_free(e_ctrl->pvdd_en);
+	}
+#endif
 	pr_err("%s success result=%d X\n", __func__, rc);
 	return rc;
 power_down:

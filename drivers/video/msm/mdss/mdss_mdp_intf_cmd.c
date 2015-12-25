@@ -414,7 +414,9 @@ static void pingpong_done_work(struct work_struct *work)
 		while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))
 			mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_DONE);
 
+#if !defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 		mdss_mdp_ctl_perf_release_bw(ctx->ctl);
+#endif
 	}
 }
 
@@ -834,10 +836,6 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
 	if (sctx)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, sctx->pp_num);
-
-	if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_105 ||
-			ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_109)
-		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_INTF_RESTORE, NULL);
 
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);	/* Kickoff */
 

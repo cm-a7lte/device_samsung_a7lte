@@ -69,7 +69,7 @@
 #define BMM_MAX_RETRY_WAKEUP (5)
 #define BMM_MAX_RETRY_WAIT_DRDY (100)
 
-#define BMM_DELAY_MIN (10)
+#define BMM_DELAY_MIN (20)
 #define BMM_DELAY_DEFAULT (200)
 
 #define MAG_VALUE_MAX (32767)
@@ -141,7 +141,6 @@ struct bmm_client_data {
 	struct mutex mutex_value;
 
 	struct regulator *reg_vio;
-	struct regulator *reg_vdd;
 	int place;
 	u64 old_timestamp;
 #if defined(CONFIG_CHARGER_NOTIFY_SENSOR)
@@ -530,9 +529,9 @@ static void bmm_work_func(struct work_struct *work)
 		time_hi = (int)((timestamp & TIME_HI_MASK) >> TIME_HI_SHIFT);
 		time_lo = (int)(timestamp & TIME_LO_MASK);
 
-	input_report_rel(client_data->input, REL_X, client_data->value.datax);
-	input_report_rel(client_data->input, REL_Y, client_data->value.datay);
-	input_report_rel(client_data->input, REL_Z, client_data->value.dataz);
+		input_report_rel(client_data->input, REL_X, client_data->value.datax);
+		input_report_rel(client_data->input, REL_Y, client_data->value.datay);
+		input_report_rel(client_data->input, REL_Z, client_data->value.dataz);
 		input_report_rel(client_data->input, REL_RX, time_hi);
 		input_report_rel(client_data->input, REL_RY, time_lo);
 		input_sync(client_data->input);
@@ -1623,42 +1622,22 @@ static int bmm050_mag_power_onoff(struct bmm_client_data *data, bool onoff)
 		ret = regulator_set_voltage(data->reg_vio, 1800000, 1800000);
 	}
 
-	data->reg_vdd = devm_regulator_get(&data->client->dev, "bmm050,vdd");
-	if (IS_ERR(data->reg_vdd)) {
-		pr_err("could not get vdd, %ld\n", PTR_ERR(data->reg_vdd));
-		ret = -ENOMEM;
-		goto err_vdd;
-	} else if (!regulator_get_voltage(data->reg_vdd)) {
-		ret = regulator_set_voltage(data->reg_vdd, 2850000, 2850000);
-	}
-
 	if (onoff) {
 		ret = regulator_enable(data->reg_vio);
 		if (ret) {
 			pr_err("%s: Failed to enable vio.\n", __func__);
-		}
-		ret = regulator_enable(data->reg_vdd);
-		if (ret) {
-			pr_err("%s: Failed to enable vdd.\n", __func__);
 		}
 	} else {
 		ret = regulator_disable(data->reg_vio);
 		if (ret) {
 			pr_err("%s: Failed to disable vio.\n", __func__);
 		}
-		ret = regulator_disable(data->reg_vdd);
-		if (ret) {
-			pr_err("%s: Failed to disable vdd.\n", __func__);
-		}
 	}
 	pr_info("%s success:%d\n", __func__, onoff);
-	msleep(20);
-	return ret;
 
-err_vdd:
 	devm_regulator_put(data->reg_vio);
 err_vio:
-
+	msleep(20);
 	return ret;
 }
 
@@ -1949,8 +1928,7 @@ static int bmm_remove(struct i2c_client *client)
 		sysfs_remove_group(&client_data->input->dev.kobj,
 				&bmm_attribute_group);
 		bmm_input_destroy(client_data);
-		devm_regulator_put(client_data->reg_vio);
-		devm_regulator_put(client_data->reg_vdd);
+
 		kfree(client_data);
 
 		bmm_client = NULL;

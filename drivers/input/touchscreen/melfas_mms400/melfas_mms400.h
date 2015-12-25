@@ -38,7 +38,10 @@
 
 #include "melfas_mms400_reg.h"
 #include <linux/input/tsp_ta_callback.h>
-#include <linux/input/input_booster_msm8939.h>
+
+#ifdef CONFIG_INPUT_BOOSTER
+#include <linux/input/input_booster.h>
+#endif
 
 #ifdef CONFIG_OF
 #define MMS_USE_DEVICETREE		1
@@ -83,7 +86,11 @@
 #define MMS_USE_NAP_MODE		0
 #define MMS_USE_TEST_MODE		1
 #define MMS_USE_CMD_MODE		1
+#ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 #define MMS_USE_DEV_MODE		0
+#else
+#define MMS_USE_DEV_MODE		1
+#endif
 
 //Input value
 #define MAX_FINGER_NUM			10
@@ -103,11 +110,13 @@
 #define INPUT_PALM_MAX			1
 
 //Firmware update
-#if defined(CONFIG_SEC_H7_PROJECT) || defined(CONFIG_SEC_A8_PROJECT)
-#define INTERNAL_FW_PATH		"tsp_melfas/mms449_h7.fw"
-#else
+#if defined(CONFIG_SEC_K5_PROJECT)
 #define INTERNAL_FW_PATH		"tsp_melfas/mms449_k5.fw"
+#else	// K7, H7, A8
+#define INTERNAL_FW_PATH		"tsp_melfas/mms449_a8.fw"
+#define APPLY_RESOLUTION
 #endif
+
 #define EXTERNAL_FW_PATH		"/sdcard/melfas.mfsb"
 #define MMS_USE_AUTO_FW_UPDATE		1
 #define MMS_FW_MAX_SECT_NUM		4
@@ -178,6 +187,8 @@ struct mms_ts_info {
 	bool cmd_busy;
 	bool dev_busy;
 
+	bool read_all_data;
+
 #if MMS_USE_CMD_MODE
 	dev_t cmd_dev_t;
 	struct device *cmd_dev;
@@ -200,9 +211,15 @@ struct mms_ts_info {
 	struct tsp_callbacks callbacks;
 #endif
 
-#ifdef TSP_BOOSTER
+#ifdef CONFIG_INPUT_BOOSTER
 	struct input_booster *booster;
 #endif
+#ifdef CONFIG_TOUCHSCREEN_DUMP_MODE
+	struct delayed_work ghost_check;
+	u8 tsp_dump_lock;
+	u8 add_log_header;
+#endif
+
 };
 
 /**

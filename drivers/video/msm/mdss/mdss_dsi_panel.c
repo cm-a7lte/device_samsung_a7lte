@@ -174,7 +174,17 @@ void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	if (!mdss_panel_attach_get(ctrl)) {
 		pr_err("%s: mdss_panel_attach_get(%d) : %d\n",__func__, ctrl->ndx, mdss_panel_attach_get(ctrl));
-			return;
+		return;
+	}
+
+	if (IS_ERR_OR_NULL(pcmds)) {
+		pr_err("%s: pcmds is NULL\n",__func__);
+		return;
+	}
+
+	if (IS_ERR_OR_NULL(pcmds->cmds)) {
+		pr_err("%s: pcmds->cmds is NULL\n",__func__);
+		return;
 	}
 #endif
 
@@ -1805,9 +1815,6 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	rc = of_property_read_u32(np, "qcom,mdss-power-off-delay-us", &tmp);
 	pinfo->mipi.power_off_delay = (!rc ? tmp : 0);
-	
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-additional-delay-us", &tmp);
-	pinfo->mipi.additional_delay = (!rc ? tmp : 0);
 
 	mdss_dsi_parse_roi_alignment(np, pinfo);
 

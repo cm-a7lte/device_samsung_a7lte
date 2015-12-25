@@ -48,9 +48,9 @@
 /* Total bytes used by the compressed storage */
 static u64 zswap_pool_total_size;
 /* Number of memory pages used by the compressed pool */
-static u64 zswap_pool_pages;
+u64 zswap_pool_pages;
 /* The number of compressed pages currently stored in zswap */
-static atomic_t zswap_stored_pages = ATOMIC_INIT(0);
+atomic_t zswap_stored_pages = ATOMIC_INIT(0);
 
 /*
  * The statistics below are not protected from concurrent access for
@@ -73,6 +73,9 @@ static u64 zswap_reject_alloc_fail;
 static u64 zswap_reject_kmemcache_fail;
 /* Duplicate store was encountered (rare) */
 static u64 zswap_duplicate_entry;
+
+/* The number of zero pages currently stored in zswap */
+static atomic_t zswap_zero_pages = ATOMIC_INIT(0);
 
 /*********************************
 * tunables
@@ -178,6 +181,9 @@ static void zswap_comp_exit(void)
  * handle - zpool allocation handle that stores the compressed page data
  * length - the length in bytes of the compressed page data.  Needed during
  *          decompression
+ * zero_flag - the flag indicating the page for the zswap_entry is a zero page.
+ *            zswap does not store the page during compression.
+ *            It memsets the page with 0 during decompression.
  */
 struct zswap_entry {
 	struct rb_node rbnode;
@@ -185,6 +191,7 @@ struct zswap_entry {
 	int refcount;
 	unsigned int length;
 	unsigned long handle;
+	unsigned char zero_flag;
 };
 
 struct zswap_header {
@@ -226,6 +233,7 @@ static struct zswap_entry *zswap_entry_cache_alloc(gfp_t gfp)
 	if (!entry)
 		return NULL;
 	entry->refcount = 1;
+	entry->zero_flag = 0;
 	RB_CLEAR_NODE(&entry->rbnode);
 	return entry;
 }
@@ -296,7 +304,12 @@ static void zswap_rb_erase(struct rb_root *root, struct zswap_entry *entry)
  */
 static void zswap_free_entry(struct zswap_entry *entry)
 {
+	if (entry->zero_flag == 1) {
+		atomic_dec(&zswap_zero_pages);
+		goto zeropage_out;
+	}
 	zpool_free(zswap_pool, entry->handle);
+zeropage_out:
 	zswap_entry_cache_free(entry);
 	atomic_dec(&zswap_stored_pages);
 	zswap_pool_total_size = zpool_get_total_size(zswap_pool);
@@ -636,6 +649,21 @@ end:
 	return ret;
 }
 
+static int page_zero_filled(void *ptr)
+{
+	unsigned int pos;
+	unsigned long *page;
+
+	page = (unsigned long *)ptr;
+
+	for (pos = 0; pos != PAGE_SIZE / sizeof(*page); pos++) {
+		if (page[pos])
+			return 0;
+	}
+
+	return 1;
+}
+
 /*********************************
 * frontswap hooks
 **********************************/
@@ -682,8 +710,18 @@ static int zswap_frontswap_store(unsigned type, pgoff_t offset,
 	}
 
 	/* compress */
-	dst = get_cpu_var(zswap_dstmem);
 	src = kmap_atomic(page);
+	if (page_zero_filled(src)) {
+		atomic_inc(&zswap_zero_pages);
+		entry->zero_flag = 1;
+		kunmap_atomic(src);
+
+		handle = 0;
+		dlen = PAGE_SIZE;
+		goto zeropage_out;
+	}
+	dst = get_cpu_var(zswap_dstmem);
+
 	ret = zswap_comp_op(ZSWAP_COMPOP_COMPRESS, src, PAGE_SIZE, dst, &dlen);
 	kunmap_atomic(src);
 	if (ret) {
@@ -710,6 +748,7 @@ static int zswap_frontswap_store(unsigned type, pgoff_t offset,
 	zpool_unmap_handle(zswap_pool, handle);
 	put_cpu_var(zswap_dstmem);
 
+zeropage_out:
 	/* populate entry */
 	entry->offset = offset;
 	entry->handle = handle;
@@ -765,6 +804,13 @@ static int zswap_frontswap_load(unsigned type, pgoff_t offset,
 	}
 	spin_unlock(&tree->lock);
 
+	if (entry->zero_flag == 1) {
+		dst = kmap_atomic(page);
+		memset(dst, 0, PAGE_SIZE);
+		kunmap_atomic(dst);
+		goto zeropage_out;
+	}
+
 	/* decompress */
 	dlen = PAGE_SIZE;
 	src = (u8 *)zpool_map_handle(zswap_pool, entry->handle,
@@ -776,6 +822,7 @@ static int zswap_frontswap_load(unsigned type, pgoff_t offset,
 	zpool_unmap_handle(zswap_pool, entry->handle);
 	BUG_ON(ret);
 
+zeropage_out:
 	spin_lock(&tree->lock);
 	zswap_entry_put(tree, entry);
 	spin_unlock(&tree->lock);
@@ -890,6 +937,8 @@ static int __init zswap_debugfs_init(void)
 			zswap_debugfs_root, &zswap_pool_pages);
 	debugfs_create_atomic_t("stored_pages", S_IRUGO,
 			zswap_debugfs_root, &zswap_stored_pages);
+	debugfs_create_atomic_t("zero_pages", S_IRUGO,
+			zswap_debugfs_root, &zswap_zero_pages);
 
 	return 0;
 }

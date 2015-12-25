@@ -77,10 +77,6 @@
 		battery,recharge_condition_soc = <98>;
 		battery,recharge_condition_vcell = <4300>;
 
-		battery,swelling_drop_float_voltage = <4200>;
-		battery,swelling_high_rechg_voltage = <4150>;
-		battery,swelling_low_rechg_voltage = <4050>;
-
 		battery,charging_total_time = <21600>;
 		battery,recharging_total_time = <5400>;
 		battery,charging_reset_time = <0>;
@@ -101,7 +97,7 @@
 
 			/* AICL Disable for RT5033 Rev Change */
 			battery,dualized_charging_current;
-			battery,fast_charging_current_5033a = <2000 0 500 2000 500 1000 1000 500 0 1200 2000 2000 1500 (-1) 1300 500 800 1300 500 1000 2000 0 0>;
+			battery,fast_charging_current_5033a = <2000 0 500 2000 500 1000 1000 500 0 1200 2000 2000 2000 (-1) 1300 500 800 1300 500 1000 2000 0 0>;
 			battery,input_current_limit_5033a = <1500 500 500 1500 500 1000 1000 500 500 1000 1000 1500 1500 500 1000 500 700 1000 500 1000 1500 500 500>;
 	
 			/* original charging current */

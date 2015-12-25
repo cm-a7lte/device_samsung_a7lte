@@ -47,18 +47,36 @@
 #define REGS_OPMOD		0x4 /* Write Only */
 #define REGS_CON		0x6 /* Write Only */
 
-#if defined(CONFIG_SEC_FORTUNA_PROJECT)
-#define PROX_NONDETECT			0x40
-#define PROX_DETECT				0x20
-#else
-#define PROX_NONDETECT			0x2F
-#define PROX_DETECT				0x0F
-#endif
+#if defined(CONFIG_SENSORS_BMA2X2_MODE_A)
+#define PROX_NONDETECT		0xC2
+#define PROX_DETECT		0xC2
+#define PROX_NONDETECT_MODE1	0xC8
+#define PROX_DETECT_MODE1	0xC8
+#define PROX_NONDETECT_MODE2	0xCB
+#define PROX_DETECT_MODE2	0xCB
+#elif defined(CONFIG_SENSORS_BMA2X2_MODE_B1)
+#define PROX_NONDETECT		0x40
+#define PROX_DETECT		0x20
 #define PROX_NONDETECT_MODE1	0x43
-#define PROX_DETECT_MODE1		0x28
+#define PROX_DETECT_MODE1	0x28
 #define PROX_NONDETECT_MODE2	0x48
-#define PROX_DETECT_MODE2		0x42
-#define OFFSET_FILE_PATH		"/efs/prox_cal"
+#define PROX_DETECT_MODE2	0x42
+#elif defined(CONFIG_SENSORS_PROX_NEWMODE2)
+#define PROX_NONDETECT		0x2F
+#define PROX_DETECT		0x0D
+#define PROX_NONDETECT_MODE1	0x43
+#define PROX_DETECT_MODE1	0x28
+#define PROX_NONDETECT_MODE2	0x48
+#define PROX_DETECT_MODE2	0x42
+#else
+#define PROX_NONDETECT		0x2F
+#define PROX_DETECT		0x0F
+#define PROX_NONDETECT_MODE1	0x41
+#define PROX_DETECT_MODE1	0x2E
+#define PROX_NONDETECT_MODE2	0x4E
+#define PROX_DETECT_MODE2	0x2B
+#endif
+#define OFFSET_FILE_PATH		"/efs/FactoryApp/prox_cal"
 
 #define PROXIMITY	1
 #define CHIP_DEV_NAME	"GP2AP002"
@@ -241,7 +259,7 @@ static int gp2a_cal_mode_read_file(struct gp2a_data *gp2a)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_mode_filp = filp_open(OFFSET_FILE_PATH, O_RDONLY, 0666);
+	cal_mode_filp = filp_open(OFFSET_FILE_PATH, O_RDONLY, 0);
 	if (IS_ERR(cal_mode_filp)) {
 		err = PTR_ERR(cal_mode_filp);
 		if (err != -ENOENT)
@@ -277,7 +295,7 @@ static int gp2a_cal_mode_save_file(char mode)
 	set_fs(KERNEL_DS);
 
 	cal_mode_filp = filp_open(OFFSET_FILE_PATH,
-		O_CREAT | O_TRUNC | O_WRONLY, 0666);
+		O_CREAT | O_TRUNC | O_WRONLY, 0660);
 	if (IS_ERR(cal_mode_filp)) {
 		pr_err("%s,Can't open cal_mode file\n",
 			__func__);

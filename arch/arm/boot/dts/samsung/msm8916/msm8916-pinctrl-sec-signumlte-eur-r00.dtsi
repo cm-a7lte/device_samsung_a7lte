@@ -1285,7 +1285,7 @@
 
 		pmx_ts_release {
 			qcom,pins = <&gp 13>;
-			qcom,num-grp-pins = <1>;		
+			qcom,num-grp-pins = <1>;
 			label = "pmx_ts_release";
 
 			ts_release: ts_release {

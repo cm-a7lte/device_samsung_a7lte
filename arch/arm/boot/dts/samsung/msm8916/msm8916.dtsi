@@ -528,6 +528,7 @@
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <3>;
 		qcom,hsusb-otg-otg-control = <2>;
+		qcom,hsusb-otg-disable-reset;
 		qcom,dp-manual-pullup;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
@@ -1389,8 +1390,10 @@
 		clocks = <&clock_rpm clk_xo_wlan_clk>,
 			 <&clock_rpm clk_rf_clk2>,
 			 <&clock_debug clk_gcc_debug_mux>,
-			 <&clock_gcc clk_wcnss_m_clk>;
-		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+			 <&clock_gcc clk_wcnss_m_clk>,
+			 <&clock_gcc clk_gcc_snoc_qosgen_clk>;
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug",
+				"snoc_qosgen";
 
 		qcom,has-autodetect-xo;
 		qcom,wlan-rx-buff-count = <512>;
@@ -1746,7 +1749,6 @@
 		qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0>;
 		qcom,sw-power-collapse;
-		qcom,enable-minimum-voting;
 		qcom,load-freq-tbl = <352800 228570000 0xffffffff>,
 			<352800 228570000 0x55555555>,
 			<244800 160000000 0xffffffff>,
@@ -1808,6 +1810,16 @@
 					<63 512 677600 1331000>, /* 720p 60 fps */
 					<63 512 677600 1331000>; /* 1080p 30 fps */
 				qcom,bus-configs = <0x030fcfff>;
+			};
+			qcom,msm-bus-client@2 {
+				qcom,msm-bus,name = "venus-arm9-ddr";
+				qcom,msm-bus,num-cases = <2>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 1000 1000>;
+				qcom,bus-configs = <0x00000000>;
+				qcom,bus-passive;
 			};
 		};
 	};
@@ -2074,3 +2086,26 @@
 		qcom,thermal-node;
 	};
 };
+
+&soc {
+	/* Samsung Feature for all MSM8916 models */
+	input_booster {
+		status = "disabled";
+		compatible = "input_booster";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+	/*	DVFS_STAGE_NONE		0x0001	: 0000 0000 0000 0001
+		DVFS_STAGE_SINGLE	0x0002	: 0000 0000 0000 0010
+		DVFS_STAGE_DUAL		0x0004	: 0000 0000 0000 0100 */
+
+		booster,tsp_stage = <0x0007>;	// supported stage with OR operation
+		booster,tkey_stage = <0x0001>;	// supported stage with OR operation
+		booster,wacom_stage = <0x0001>;	// supported stage with OR operation
+
+		booster,level = <2>;			// default level
+		booster,head = <130 1190400 0>;	// default head value <time cpu_freq bimc_freq>
+		booster,tail = <500 998400 0>;	// default tail value <time cpu_freq bimc_freq>
+	};
+};
+

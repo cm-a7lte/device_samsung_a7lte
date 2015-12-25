@@ -983,6 +983,7 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_mdp_pipe *left_plist[MAX_PIPES_PER_LM];
 	struct mdss_mdp_pipe *right_plist[MAX_PIPES_PER_LM];
+        struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int i, left_cnt = 0, right_cnt = 0;
 
 	for (i = 0; i < MAX_PIPES_PER_LM; i++) {
@@ -1008,6 +1009,13 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 				&mdss_res->ib_factor_overlap),
 			apply_fudge_factor(perf->bw_prefill,
 				&mdss_res->ib_factor));
+                if (left_cnt == 1) {
+                        mdata->ib_factor_single.numer = 11;
+                        mdata->ib_factor_single.denom = 10;
+
+                        perf->bw_ctl = apply_fudge_factor(perf->bw_ctl,
+                                &mdss_res->ib_factor_single);
+                } 
 	} else if (ctl->intf_num != MDSS_MDP_NO_INTF) {
 		perf->bw_ctl = apply_fudge_factor(perf->bw_ctl,
 				&mdss_res->ib_factor_cmd);
@@ -3398,8 +3406,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			mutex_lock(&mdp5_data->list_lock);
 			list_for_each_entry_safe(pipe, next, &mdp5_data->pipes_used, list) {
 				if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-					mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctl->num);
 					if (ctl->wait_video_pingpong) {
+						mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctl->num);
 						ctl->wait_video_pingpong(ctl, NULL);
 					}
 					pr_info(" mdss_mdp_csc_setup start\n");
@@ -3484,8 +3492,8 @@ int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)
 	mdata = mdss_mdp_get_mdata();
 	for (i = 0; i < mdata->nctl; i++) {
 		ctl = mdata->ctl_off + i;
-		if ((mdss_mdp_ctl_is_power_on(ctl)) && (ctl->mfd) &&
-			(ctl->mfd->index == fb_num)) {
+		if ((mdss_mdp_ctl_is_power_on(ctl) || mdata->handoff_pending) &&
+				(ctl->mfd) && (ctl->mfd->index == fb_num)) {
 			if (ctl->mixer_left) {
 				mixer_id[mixer_cnt] = ctl->mixer_left->num;
 				mixer_cnt++;

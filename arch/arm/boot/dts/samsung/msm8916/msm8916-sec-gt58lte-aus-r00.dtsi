@@ -96,7 +96,7 @@
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <115 0>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&acc_int_active>;
+			pinctrl-0 = <&acc_int_active &sensor_i2c_active>;
 			stm,irq_gpio = <&msm_gpio 115 0x00>;
 			stm,vio-supply = <&pm8916_l5>;
 			stm,vdd-supply = <&pm8916_l17>;
@@ -196,8 +196,8 @@
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
 		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
-		pinctrl-1 = <&gpio_key_suspend>;
+		pinctrl-0 = <&gpio_volup_key_active &gpio_home_key_active>;
+		pinctrl-1 = <&gpio_volup_key_suspend &gpio_home_key_suspend>;
 
 		home_key {
 			label = "home_key";

@@ -395,13 +395,6 @@ config SAMSUNG_JACK
 	 To samsung jack is reviewed and supported in all the
 	 samsung devices.
 
-config SAMSUNG_JACK_WATCH_DOG_RESET_WORK_AROUND
-	bool "prevent watch dog reset by ear det interrupt storming"
-	depends on SAMSUNG_JACK
-	default n
-	help
-	This is SW workaround code for watch dog reset due to HW
-
 config EARJACK_ADC_SYSFS
 	bool "EarJack & BTN adc sysfs"
 	depends on SAMSUNG_JACK
@@ -579,6 +572,18 @@ config SM5502_MUIC
 	default n
 	help
 	  This option enables SILICON MITUS MUIC.
+
+config SM5703_MUIC
+	bool "SILICON MITUS MUIC"
+	default n
+	help
+	  This option enables SILICON MITUS MUIC.	  
+
+config S2MM001_VBUS_CHECK
+	bool "S2MM001 MUIC VBUS CHECK"
+	default n
+	help
+	  This option enables VBUS CHECKER for S2MM001.
 
 config SM5504_MUIC
 	bool "SILICON MITUS MUIC"
@@ -866,4 +871,5 @@ source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
 source "drivers/misc/qcom/Kconfig"
+source "drivers/misc/tzdev/Kconfig"
 endmenu

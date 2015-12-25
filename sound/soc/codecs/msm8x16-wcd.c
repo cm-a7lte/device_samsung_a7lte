@@ -99,7 +99,7 @@ enum {
 #define SPK_PMD 2
 #define SPK_PMU 3
 
-#define MICBIAS_DEFAULT_VAL 1800000
+#define MICBIAS_DEFAULT_VAL 2700000
 #define MICBIAS_MIN_VAL 1600000
 #define MICBIAS_STEP_SIZE 50000
 
@@ -2536,7 +2536,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
                         pr_info(">>> SND_SOC_DAPM_POST_PMU MIC BIAS2 Power External !!\n");
 			if (++msm8x16_wcd->micb_2_ref_cnt == 1) {
 				snd_soc_update_bits(codec, w->reg, 0x80, 0x80);
-#if defined(CONFIG_SEC_GT510_PROJECT)
+#if defined(CONFIG_SEC_GT510_PROJECT) || defined (CONFIG_SEC_MILLETVE_PROJECT) || defined (CONFIG_SEC_MATISSEVE_PROJECT)
 				snd_soc_update_bits(codec, micb_int_reg, 0x08, 0x08); /* pull up disable */
 #else
 				snd_soc_update_bits(codec, micb_int_reg, 0x18, 0x18); /* internal2 RBIAS */
@@ -2596,8 +2596,11 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 					WCD_EVENT_PRE_MICBIAS_2_OFF);
 			break;
 		}
-		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
-				0x44, 0x00);
+
+		if (!strnstr(w->name, "MIC BIAS2 Power External", 30))	{
+			snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+					0x44, 0x00);
+		}
 		break;
 	}
 	return 0;
@@ -4002,13 +4005,6 @@ static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults_2_0[] = {
 #endif
 };
 
-#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
-static const struct msm8x16_wcd_reg_mask_val msm8x16_micbias_control[] = {
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_MICB_1_VAL, 0x60), /* micbias 2.2V */
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_MICB_1_VAL, 0xC0), /* micbias 2.8V */
-};
-#endif
-
 static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_SUBTYPE, 0x02),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_SEC_ACCESS, 0xA5),
@@ -4048,12 +4044,17 @@ static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
 }
 
 #ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
-void msm8x16_wcd_dynamic_control_micbias(int voltage)
+void msm8x16_wcd_dynamic_control_micbias(int micb_out_val)
 {
-	switch (voltage) {
-	case MIC_BIAS_V2P20V:
-		snd_soc_write(registered_codec, msm8x16_micbias_control[voltage].reg,
-				msm8x16_micbias_control[voltage].val);
+	u8 micb_1_val;
+
+	micb_1_val = snd_soc_read(registered_codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL);
+	micb_1_val &= 0x7;	// MICB_OUT_VAL [7:3] bits
+	micb_1_val |= (u8)micb_out_val << 3;
+
+	switch (micb_out_val) {
+	case MIC_BIAS_V1P60V ... MIC_BIAS_V2P75V:
+		snd_soc_write(registered_codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL, micb_1_val);
 		break;
 	case MIC_BIAS_V2P80V:
 		/* When change micbias voltage through register setting,
@@ -4064,8 +4065,7 @@ void msm8x16_wcd_dynamic_control_micbias(int voltage)
 		 * and it takes much shorter time to charge to the desired output voltage.
 		 */
 		msm8x16_enable_micbias2(registered_codec, 0);
-		snd_soc_write(registered_codec, msm8x16_micbias_control[voltage].reg,
-				msm8x16_micbias_control[voltage].val);
+		snd_soc_write(registered_codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL, micb_1_val);
 		msm8x16_enable_micbias2(registered_codec, 1);
 		break;
 	default:
@@ -4362,10 +4362,10 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	 * set to default boost option BOOST_SWITCH, user mixer path can change
 	 * it to BOOST_ALWAYS or BOOST_BYPASS based on solution chosen.
 	 */
-#ifndef CONFIG_MACH_E5_USA_TFN	 
-        msm8x16_wcd_priv->boost_option = BOOST_ALWAYS;
-#else
+#if defined(CONFIG_MACH_E5_USA_TFN) || defined(CONFIG_MACH_E53G_EUR_OPEN) || defined(CONFIG_MACH_E5_EUR_OPEN)	 
         msm8x16_wcd_priv->boost_option = BOOST_SWITCH;
+#else
+        msm8x16_wcd_priv->boost_option = BOOST_ALWAYS;
 #endif
 
 	msm8x16_wcd_dt_parse_boost_info(codec);

@@ -1848,10 +1848,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 
 	if ((topology == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
 	    (topology == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
-	    (topology == VPM_TX_DM_RFECNS_COPP_TOPOLOGY)  ||
+	    (topology == VPM_TX_DM_RFECNS_COPP_TOPOLOGY) ||
 		/* LVVE for Barge-in */
-			(open.topology_id == 0x1000BFF0) ||             //cl# 2618318                                  //cl 2618318
-			(open.topology_id == 0x1000BFF1))
+	    (topology == 0x1000BFF0) ||
+	    (topology == 0x1000BFF1))
 		rate = 16000;
 
 	copp_idx = adm_get_idx_if_copp_exists(port_idx, topology, perf_mode,
@@ -1941,14 +1941,6 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		}
 
 		open.topology_id = topology;
-		
-	if ((topology == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-	    (topology == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
-	    (topology == VPM_TX_DM_RFECNS_COPP_TOPOLOGY)  ||
-		/* LVVE for Barge-in */
-			(open.topology_id == 0x1000BFF0) ||             //cl# 2618318                                  //cl 2618318
-			(open.topology_id == 0x1000BFF1))
-		rate = 16000;	// For fixing voice control command "Accept"/ "Reject" on receiving call
 		
 		open.dev_num_channel = channel_mode & 0x00FF;
 		open.bit_width = bit_width;

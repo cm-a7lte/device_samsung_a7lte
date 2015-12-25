@@ -789,7 +789,7 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 	case MSMFB_WRITEBACK_TERMINATE:
 		mdss_iommu_ctrl(1);
 		ret = mdss_mdp_wb_terminate(mfd);
-		mdss_iommu_ctrl(0);
+		mdss_iommu_ctrl(1);
 		break;
 	case MSMFB_WRITEBACK_SET_MIRRORING_HINT:
 		if (!copy_from_user(&hint, arg, sizeof(hint))) {

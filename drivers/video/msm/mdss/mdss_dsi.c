@@ -136,8 +136,7 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 			ret = mdss_backlight_tft_gpio_config(pdata, 0);
 			if (ret)
 				pr_info("%s : failed to disable tft backlight configuration\n", __func__);
-		} else
-			pr_info("%s : backlight_tft_config is null", __func__);
+		}
 
 		if(vdd->panel_func.samsung_ql_lvds_register_set && ctrl_pdata->lvds_clk)
 			clk_disable_unprepare(ctrl_pdata->lvds_clk);
@@ -246,6 +245,10 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
 	}
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+                if (gpio_is_valid(ctrl_pdata->lcd_select_gpio))
+                        pr_info("%s : lcd_select(%d)\n", __func__, gpio_get_value(ctrl_pdata->lcd_select_gpio));
+#endif
 
 error:
 	if (ret) {
@@ -674,7 +677,15 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * clocks.
 	 */
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
-	if (!pdata->panel_info.ulps_suspend_enabled) {
+
+	/*
+	 * If ULPS during suspend feature is enabled, then DSI PHY was
+	 * left on during suspend. In this case, we do not need to reset/init
+	 * PHY. This would have already been done when the BUS clocks are
+	 * turned on. However, if cont splash is disabled, the first time DSI
+	 * is powered on, phy init needs to be done unconditionally.
+	 */
+	if (!pdata->panel_info.ulps_suspend_enabled || !ctrl_pdata->ulps) {
 		mdss_dsi_phy_sw_reset(ctrl_pdata);
 		mdss_dsi_phy_init(ctrl_pdata);
 		mdss_dsi_ctrl_setup(ctrl_pdata);
@@ -1330,6 +1341,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 							pdata);
 		break;
 	case MDSS_EVENT_UNBLANK:
+		mdss_dsi_get_hw_revision(ctrl_pdata);
 		if (ctrl_pdata->on_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_unblank(pdata);
 		break;
@@ -1391,9 +1403,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_REGISTER_RECOVERY_HANDLER:
 		rc = mdss_dsi_register_recovery_handler(ctrl_pdata,
 			(struct mdss_intf_recovery *)arg);
-		break;
-	case MDSS_EVENT_INTF_RESTORE:
-		mdss_dsi_ctrl_phy_restore(ctrl_pdata);
 		break;
 	case MDSS_EVENT_FB_REGISTERED:
 		if (ctrl_pdata->registered) {

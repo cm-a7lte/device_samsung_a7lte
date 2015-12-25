@@ -198,7 +198,7 @@
 			pn547,ven-gpio = <&msm_gpio 116 0x00>;
 			pn547,irq-gpio = <&msm_gpio 21 0x01>;
 			nfc_ldo-supply = <&pm8916_l14>;
-			clocks = <&clock_rpm clk_bb_clk2_pin>;
+			clocks = <&clock_rpm clk_bb_clk2>;
 			clock-names = "nfc_clock";
 		};
 	};
@@ -630,7 +630,7 @@
 		/* NFC_CLK_REQ */
 		qcom,mode = <0>; /* QPNP_PIN_MODE_DIG_IN */
 		qcom,pull = <5>; /* QPNP_PIN_PULL_NO */
-		qcom,vin-sel = <3>; /* QPNP_PIN_VIN2 */
+		qcom,vin-sel = <2>; /* QPNP_PIN_VIN2 */
 		qcom,src-sel = <2>; /* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;
 	};
